@@ -1178,7 +1178,7 @@ __metadata:
     react-dom: "npm:^19.2.8"
     typescript: "npm:~6.0.2"
     typescript-eslint: "npm:^8.69.0"
-    vite: "npm:^8.3.0"
+    vite: "npm:^8.3.2"
   languageName: unknown
   linkType: soft
 
@@ -1892,7 +1892,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^8.3.0":
+"vite@npm:^8.3.2":
   version: 8.3.2
   resolution: "vite@npm:8.3.2"
   dependencies:

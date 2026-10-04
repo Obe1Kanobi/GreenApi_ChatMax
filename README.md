@@ -1,75 +1,157 @@
-# React + TypeScript + Vite
+0. Главные подводные камни (прочитай в первую очередь)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Документация вскрывает четыре места, где легко ошибиться.
 
-Currently, two official plugins are available:
+1. Несовпадение chatId (самое важное). В MAX у чата числовой идентификатор вида "10000000", а не номер телефона. Отправить по номеру можно (79991234567@c.us), но ответ придёт с другим chatId, уже числовым. Документация прямо говорит, что отправка по номеру годится только когда входящие обрабатывать не нужно. Входящие нам нужны, поэтому схема такая:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+пользователь вводит номер → вызываем CheckAccount (POST .../checkAccount/..., тело {"phoneNumber": 79991234567}, номер числом, не строкой) → получаем {exist, chatId};
+в чате храним и телефон, и chatId, отправляем по chatId;
+входящие сопоставляем по body.senderData.chatId.
 
-## React Compiler
+Попутно: CheckAccount работает только для номеров РФ (7) и РБ (375), а частые проверки, особенно несуществующих номеров, MAX может наказать временными ограничениями. Результат кэшируй и не вызывай повторно для одного номера.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2. apiUrl. В задании пользователь вводит только idInstance и apiTokenInstance, но любой запрос идёт на {{apiUrl}}/waInstance{{idInstance}}/..., и apiUrl у инстанса свой, он указан в личном кабинете. Варианты: добавить третье поле «API URL» со значением по умолчанию из твоего кабинета (спрятать в «Дополнительно») или вычислять из idInstance, если в кабинете увидишь закономерность. Я бы взял поле с дефолтом: честно и не ломается.
 
-## Expanding the ESLint configuration
+3. Очередь уведомлений FIFO. receiveNotification отдаёт по одному уведомлению за раз. Пока его не удалишь через deleteNotification, следующее не придёт. Значит, удалять нужно любое уведомление, включая статусы, смену состояния инстанса и картинки, а не только текстовые. Иначе очередь встанет на первом же «неинтересном» событии.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+4. React StrictMode. В dev-режиме эффекты запускаются дважды. Без отмены получишь два параллельных цикла опроса, которые будут воровать друг у друга уведомления. Нужен AbortController и флаг остановки в cleanup.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. Подготовка (до кода, ~2–3 часа)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Подготовь два аккаунта MAX: один подключается к GREEN-API (от его имени отправляешь), второй — это «получатель», который будет отвечать (второй телефон, друг, родственник). Без второго аккаунта последние пункты ожидаемого результата не проверить.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Шаги:
 
-```
+Зарегистрироваться в console.green-api.com, создать инстанс на бесплатном тарифе для разработчика. После создания инстанс до 2 минут переходит в рабочее состояние.
+Авторизовать инстанс: в приложении MAX открыть Профиль → Устройства → Войти по QR-коду и отсканировать QR из кабинета. Перед этим отключи пароль для входа в MAX, иначе QR-авторизация сейчас не работает.
+Записать apiUrl, idInstance, apiTokenInstance.
+В настройках инстанса: webhookUrl пустой (иначе receiveNotification вернёт 400), включить «входящие сообщения». «Сообщения, отправленные с телефона» можно тоже включить, это пригодится.
+Прогнать весь сценарий в Postman или curl до написания кода: getStateInstance → checkAccount → sendMessage → ответить со второго телефона → receiveNotification → deleteNotification. Так увидишь реальные JSON и убедишься, что всё работает.
+Проверить CORS. Сделай fetch к API прямо из консоли браузера на любой странице. Если запрос проходит, фронт ходит в API напрямую. Если блокируется, в dev настраиваешь proxy в Vite, а для деплоя понадобится прокси (например, rewrites в Vercel). Это нужно выяснить в первый день, потому что от ответа зависит архитектура.
+2. Стек
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Vite + React + TypeScript. TypeScript здесь особенно полезен: структуры уведомлений вложенные, и типы спасают от undefined.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Состояние держи в useReducer + Context, отдельные библиотеки не нужны (максимум zustand, если удобнее). Стили на CSS Modules или обычном CSS. UI-кит не нужен: интерфейс должен быть похож на MAX, проще сверстать самому. HTTP — тонкая обёртка над fetch, без axios. Тесты по желанию: Vitest на парсер уведомлений и нормализацию телефона, это быстро и хорошо смотрится в тестовом.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+3. Структура проекта
+src/
+  api/
+    greenApi.ts        // все вызовы API: getState, checkAccount, sendMessage, receive, delete
+    types.ts           // типы ответов и уведомлений
+  features/
+    auth/LoginPage.tsx
+    chats/Sidebar.tsx, NewChatForm.tsx, ChatListItem.tsx
+    chat/ChatWindow.tsx, MessageList.tsx, MessageBubble.tsx, MessageInput.tsx
+  hooks/
+    useNotificationPolling.ts
+  store/
+    AppContext.tsx, reducer.ts
+  utils/
+    phone.ts           // нормализация номера
+    parseNotification.ts
+    storage.ts         // localStorage
+  App.tsx
 
-```
+  4. Модель данных
+  type Credentials = { apiUrl: string; idInstance: string; apiTokenInstance: string };
+
+type Message = {
+  id: string;              // idMessage из API (или временный локальный id)
+  chatId: string;
+  text: string;
+  direction: 'in' | 'out';
+  timestamp: number;       // секунды, как в API
+  status?: 'sending' | 'sent' | 'failed';
+};
+
+type Chat = {
+  chatId: string;          // из CheckAccount
+  phone: string;           // 79991234567
+  name?: string;           // senderName из входящих, когда появится
+  messages: Message[];
+  unread: number;
+};
+
+Чаты и сообщения сохраняй в localStorage. Уведомление после deleteNotification из API исчезает навсегда, поэтому без сохранения история пропадёт при обновлении страницы.
+
+5. Слой API (greenApi.ts)
+
+Пять функций, все строят URL по шаблону ${apiUrl}/waInstance${idInstance}/${method}/${apiTokenInstance}:
+
+getStateInstance (GET) — проверяем при входе, что данные верные и инстанс в состоянии authorized. Это и есть «логин».
+checkAccount (POST, {phoneNumber: number}) — при создании чата.
+sendMessage (POST, {chatId, message}) — возвращает {idMessage}. Лимит 4000 символов, валидируй на фронте.
+receiveNotification (GET, ?receiveTimeout=20) — допустимо от 5 до 60 секунд. Если уведомлений нет, вернётся пустой ответ или null, это нормальный случай, не ошибка.
+deleteNotification (DELETE, /{receiptId} в конце URL).
+
+Ошибки обрабатывай единообразно: 401/403 → разлогинить с сообщением «неверные данные или аккаунт ограничен», 429 и 5xx → повторить с паузой. У CheckAccount отдельные случаи: exist: false → «у номера нет MAX», ответ с reason про not authorized → «инстанс не авторизован».
+
+6. Цикл получения сообщений (useNotificationPolling)
+useEffect(() => {
+  if (!creds) return;
+  const ctrl = new AbortController();
+  let stopped = false;
+
+  (async () => {
+    while (!stopped) {
+      try {
+        const n = await receiveNotification(creds, 20, ctrl.signal);
+        if (!n) continue;                       // пусто — снова ждём
+        try { handle(n.body); }                 // наш разбор
+        finally { await deleteNotification(creds, n.receiptId); } // удаляем ВСЕГДА
+      } catch (e) {
+        if (ctrl.signal.aborted) break;
+        await sleep(3000);                      // бэкофф при ошибке сети
+      }
+    }
+  })();
+
+  return () => { stopped = true; ctrl.abort(); };
+}, [creds]);
+
+Логика handle(body):
+
+typeWebhook === 'incomingMessageReceived' → смотрим messageData.typeMessage:
+textMessage → текст в messageData.textMessageData.textMessage;
+extendedTextMessage (текст со ссылкой) → текст в messageData.extendedTextMessageData.text. Проверь точное имя поля на реальном JSON из Postman;
+остальные типы → можно показать заглушку «[неподдерживаемый тип]» или пропустить.
+chatId берём из senderData.chatId. Если такого чата нет в списке, создаём новый (имя из senderName). Это мелочь, но выглядит живо.
+Дедупликация по idMessage: если сообщение уже есть, не добавляем.
+outgoingAPIMessageReceived (наши же отправки, вернувшиеся эхом) → не дублировать, максимум обновить статус.
+Всё остальное просто игнорируем (но удаляем из очереди, см. выше).
+7. Сценарии UI
+
+Экран входа: поля idInstance, apiTokenInstance, свёрнутое «API URL». Кнопка «Войти» вызывает getStateInstance. Пока идёт запрос — спиннер. Ошибки показываем понятным текстом. При успехе сохраняем креды (localStorage, если нужно «запомнить», иначе sessionStorage) и переходим к чатам. Кнопка «Выйти» чистит всё.
+
+Создание чата: кнопка «+» или «Новый чат» в сайдбаре → поле номера. Нормализуем ввод: убираем пробелы, скобки, дефисы, +, ведущую 8 меняем на 7. Проверяем, что получилось 11–12 цифр. Вызываем CheckAccount → если exist, создаём чат и открываем его. Если такой chatId уже есть в списке, просто открываем существующий.
+
+Отправка: Enter отправляет, Shift+Enter — перенос строки. Сообщение сразу появляется со статусом «отправляется» (оптимистичное обновление), после ответа API получает настоящий idMessage и статус «отправлено», при ошибке — «не отправлено» с кнопкой повтора. Пустые сообщения и сообщения из одних пробелов блокируем.
+
+Получение: новое сообщение появляется в открытом чате и автоскролл идёт вниз. Если чат не открыт, у него в сайдбаре растёт счётчик непрочитанных, а сам чат поднимается наверх списка.
+
+8. Вёрстка под web.max.ru
+
+Двухколоночный макет:
+
+Слева (~320px): шапка с заголовком и кнопкой нового чата, поиск/фильтр по списку (по желанию), список чатов: аватар-кружок с инициалами или последними цифрами номера, имя или номер, последнее сообщение одной строкой с обрезкой, время, бейдж непрочитанных.
+Справа: шапка чата (аватар, имя, номер), лента сообщений, поле ввода внизу с кнопкой отправки.
+Пузыри: исходящие справа, своим цветом; входящие слева, светлые. В углу время HH:MM. Разделители по датам («Сегодня», «Вчера») — приятный бонус.
+Пустое состояние: «Выберите чат или создайте новый».
+
+Цвета, шрифты и скругления сними прямо с web.max.ru через DevTools: так быстрее и точнее, чем на глаз. Добавь адаптив хотя бы базовый: на узком экране показывается либо список, либо чат.
+
+9. Как работать с Code Assistant
+
+Давай задачи по одному модулю, а не «сделай мессенджер». Под каждую задачу вставляй точный контракт API: URL, метод, пример тела запроса и ответа из документации или, ещё лучше, реальный JSON из твоих Postman-запросов. Особенно важно дать ему пример уведомления incomingMessageReceived, иначе он придумает формат. Скриншот web.max.ru прикладывай к задачам по вёрстке. Отдельно скажи ему про StrictMode и обязательное удаление уведомлений: это типичные места, где сгенерированный код ломается тихо.
+
+10. Финальный чек-лист перед сдачей
+Вход с неверными данными показывает ошибку, с верными пускает.
+Номер в любом формате (+7 (999) 123-45-67, 89991234567) нормализуется.
+Номер без MAX даёт понятное сообщение.
+Сообщение уходит, ответ с телефона появляется в нужном чате без перезагрузки.
+В dev-режиме нет двойных сообщений (проверка StrictMode).
+Картинка или стикер со второго телефона не ломают получение следующих текстовых сообщений.
+После обновления страницы история на месте.
+Ссылки (extendedTextMessage) отображаются.
+README и деплой готовы.

@@ -1,0 +1,3 @@
+apiUrl - https://3100.api.green-api.com
+idInstance - 310022755712
+apiTokenInstance - 875986615cda4789b42278cfbb4c78fc18a4b00295c745fc96
