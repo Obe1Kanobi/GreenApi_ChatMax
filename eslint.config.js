@@ -3,20 +3,50 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import tanstackQuery from '@tanstack/eslint-plugin-query'
 
-export default defineConfig([
-  globalIgnores(['dist']),
+const tsFiles = ['**/*.{ts,tsx}']
+
+export default tseslint.config(
+  { ignores: ['dist'] },
   {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
+    ...js.configs.recommended,
+    files: tsFiles,
+  },
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: tsFiles,
+  })),
+  {
+    ...reactHooks.configs.flat.recommended,
+    files: tsFiles,
+  },
+  {
+    ...reactRefresh.configs.vite,
+    files: tsFiles,
+  },
+  {
+    files: tsFiles,
     languageOptions: {
+      ecmaVersion: 2020,
       globals: globals.browser,
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    plugins: {
+      '@tanstack/query': tanstackQuery,
+    },
+    rules: {
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+
+      '@tanstack/query/exhaustive-deps': 'error',
+      '@tanstack/query/prefer-query-options': 'error',
+
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
-])
+)
