@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Чаты — макет по скриншоту</title>
+<style>
+:root{
+  --rail:#f6f7f8; --line:#e2e5e8; --text:#13171a; --muted:#8b9298;
+  --blue:#1989f8; --select:#e7f3ff; --chat:#81caf4;
+  --bubble:#fff; --out:#e2f8ff; --accent:#0c96e6;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);overflow:hidden}
+button,input{font:inherit}
+.app{height:100vh;display:grid;grid-template-columns:70px 364px 1fr;background:#fff}
+.rail{background:#f7f8f9;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center}
+.rail .brand{height:64px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
+.brand-mark{position:relative;width:32px;height:25px}
+.brand-mark:before{content:"";position:absolute;left:2px;top:6px;width:20px;height:15px;background:#202326;border-radius:6px}
+.brand-mark:after{content:"";position:absolute;right:0;top:0;width:13px;height:13px;background:#0d83f8;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.brand-mark i{position:absolute;z-index:2;width:4px;height:4px;border-radius:50%;background:#fff;left:7px;top:11px;box-shadow:6px 0 #fff}
+.rail-item{width:100%;padding:10px 0 9px;color:#8a9095;text-align:center;font-size:12px}
+.rail-item svg{display:block;margin:0 auto 5px;width:25px;height:25px;fill:currentColor}
+.rail-item.active{color:#121416}
+.rail-sep{height:1px;background:var(--line);width:54px;margin:3px 0 10px}
+.rail-spacer{flex:1}
+
+.chats{display:flex;flex-direction:column;background:#fff;border-right:1px solid var(--line);min-width:0}
+.chat-head{height:64px;display:flex;align-items:center;padding:0 15px;gap:10px;font-size:22px;font-weight:700}
+.chat-head .me{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#d8a86f 0 16%,#7e5335 17% 31%,#f0d6c5 32% 44%,#b47657 45% 100%);border:2px solid #2c6fff;}
+.plus{margin-left:auto;width:32px;height:32px;border:none;border-radius:50%;background:#0c7ff4;color:#fff;display:grid;place-items:center;font-size:25px;line-height:1;cursor:pointer}
+.search{margin:0 15px 10px;background:#f1f2f3;border-radius:12px;height:35px;display:flex;align-items:center;padding:0 12px;color:#8e9499;font-size:15px}
+.chat-list{overflow:auto;scrollbar-width:none}.chat-list::-webkit-scrollbar{display:none}
+.chat-row{height:76px;display:grid;grid-template-columns:55px 1fr auto;gap:10px;align-items:center;padding:0 15px;cursor:pointer}
+.chat-row.selected{background:#e7f3ff}
+.avatar{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px;overflow:hidden;flex:none}
+.av-security{background:linear-gradient(135deg,#4d4dff,#7d35df);font-size:28px}
+.av-cyan{background:#18bdd5}.av-purple{background:#7758dc}.av-red{background:#9d2a4d}.av-photo{background:linear-gradient(135deg,#d9b18a,#6c4a36)}
+.av-dark{background:#1e2932}.av-green{background:#54a84a}
+.chat-main{min-width:0}.chat-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}.chat-preview{color:#92979c;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-meta{align-self:start;padding-top:12px;color:#999da0;font-size:12px;white-space:nowrap}
+.check{color:#0d8cff;font-size:14px;margin-right:3px}
+.badge{display:inline-grid;place-items:center;background:#0d83fb;color:#fff;border-radius:50%;width:19px;height:19px;font-size:12px;margin-left:7px}
+
+.main{display:flex;flex-direction:column;min-width:0;background:#7fc9f4}
+.topbar{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 10px 0 18px;gap:14px;flex:none}
+.back{width:28px;height:28px;border:none;background:transparent;display:grid;place-items:center;color:#222;cursor:pointer}
+.profile{display:flex;align-items:center;gap:10px}.profile .p-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#ffd6b0,#ad7254);border:1px solid #ddd}
+.profile-name{font-size:15px;font-weight:700}.profile-sub{font-size:11px;color:#989ea3;margin-top:2px}
+.top-actions{margin-left:auto;display:flex;gap:18px}.icon-btn{background:none;border:none;padding:3px;cursor:pointer;color:#202326}.icon-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+.messages{flex:1;position:relative;overflow:hidden;padding:16px 18px 80px;background-color:#7bc8f3;background-image:url("data:image/svg+xml,%3Csvg width='260' height='220' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%235eb6ed' stroke-width='2' opacity='.95'%3E%3Ccircle cx='35' cy='35' r='9'/%3E%3Cpath d='M15 85h42M27 73v24M33 73l15 12-15 12'/%3E%3Cpath d='M95 28l12 18-18-3zM140 50c15-12 30 0 30 0s-15 12-30 0z'/%3E%3Ccircle cx='220' cy='35' r='16'/%3E%3Cpath d='M215 20v30M205 30h30M215 35h10'/%3E%3Cpath d='M70 150l15-16 15 16-15 16zM22 180c9-9 18-9 27 0M125 170c18 0 20 20 20 20s-20 0-20-20z'/%3E%3Cpath d='M190 155h25l-8 14h-25zM210 155l10-14'/%3E%3Cpath d='M60 205c8-12 23-12 31 0M175 190l10 10 18-25'/%3E%3C/g%3E%3C/svg%3E");
+}
+.messages:before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.06),rgba(255,255,255,0));pointer-events:none}
+.msg{position:relative;max-width:58%;margin:0 0 9px;padding:9px 10px 6px;border-radius:14px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,.06);font-size:14px;line-height:1.25}
+.msg.in{margin-left:27%;}.msg.out{margin-left:auto;background:#dcf6ff}
+.msg.small{max-width:26%}.msg.medium{max-width:48%}.msg.wide{max-width:46%}
+.msg .time{float:right;margin-left:8px;margin-top:2px;color:#8e999f;font-size:10px;line-height:1}
+.msg.out .time{color:#5a9cae}.tick{color:#159ce8}
+.quote{border-left:3px solid #f27a23;padding-left:7px;margin-bottom:6px;color:#71787e;font-size:12px}.quote b{display:block;color:#f27a23;font-size:12px;margin-bottom:3px}.quote.blue{border-color:#78c9f8}.quote.blue b{color:#75bde9}
+.reaction{display:inline-flex;align-items:center;gap:4px;background:#0a99df;color:#fff;padding:4px 9px;border-radius:12px;font-size:12px;margin-top:5px}.reaction span{font-size:14px}
+.composer{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(72%,720px);height:44px;background:#fff;border-radius:17px;display:flex;align-items:center;padding:0 12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.composer .attach{color:#93999e;margin-right:10px}.composer input{border:none;outline:0;flex:1;font-size:15px}.composer input::placeholder{color:#a1a5a9}.composer .right{display:flex;gap:14px;color:#8d9499}.composer svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9}
+
+@media(max-width:1000px){.app{grid-template-columns:60px 320px 1fr}.msg.in{margin-left:18%}.msg{max-width:70%}.composer{width:78%}}
+@media(max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:1fr}.rail,.chats{display:none}.main{min-height:100vh}.topbar{position:sticky;top:0;z-index:3}.messages{min-height:calc(100vh - 62px);padding-left:9px;padding-right:9px}.msg,.msg.small,.msg.medium,.msg.wide{max-width:82%}.msg.in{margin-left:8%}.composer{width:92%;bottom:10px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><div class="brand-mark"><i></i></div></div>
+    <div class="rail-item active"><svg viewBox="0 0 24 24"><path d="M4 5a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H9l-5 4v-4a3 3 0 0 1-1-2V5Zm5 4h6v-2H9v2Zm0 4h4v-2H9v2Z"/></svg>Все</div>
+    <div class="rail-item"><svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8v2.2A2.8 2.8 0 0 0 6.8 16H10v-2H6.8a.8.8 0 0 1-.8-.8V11a6 6 0 0 1 12 0v2.2a.8.8 0 0 1-.8.8H14v2h3.2a2.8 2.8 0 0 0 2.8-2.8V11a8 8 0 0 0-8-8Zm-3 9h2v8H9v-8Zm4 0h2v6h-2v-6Z"/></svg>Новые</div>
+    <div class="rail-item"><svg viewBox="0 0 24 24"><path d="M3 7h18v13H3V7Zm3-4h12l2 3H4l2-3Z"/></svg>Каналы</div>
+    <div class="rail-sep"></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24"><path d="M7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 0a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21a5 5 0 0 1 10 0H2Zm10 0a5 5 0 0 1 10 0H12Z"/></svg>Контакты</div>
+    <div class="rail-item"><svg viewBox="0 0 24 24"><path d="M6 2h4v3H8v5h2l-3 3H5l-1-5V7h2V2Zm12 0h4v6h-2V5h-2v5h2l-3 3h-2l-1-5V7h2V2Z"/></svg>Звонки</div>
+    <div class="rail-spacer"></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm7 7-2.2-.5-.8-1.4 1-2-2.1-2.1-2 1-1.4-.8L11 2H9l-.5 2.2-1.4.8-2-1L3 6.1l1 2-.8 1.4L1 10v4l2.2.5.8 1.4-1 2L5.1 20l2-1 .4.2.9.6L9 22h2l.5-2.2 1.4-.8 2 1 2.1-2.1-1-2 .8-1.4L19 14v-4Z"/></svg>Настройки</div>
+  </aside>
+
+  <section class="chats">
+    <div class="chat-head"><span>Чаты</span><div class="me"></div><button class="plus">+</button></div>
+    <div class="search">Найти</div>
+    <div class="chat-list">
+      <div class="chat-row"><div class="avatar av-security">✓</div><div class="chat-main"><div class="chat-name">Безопасность <span style="color:#0d83fb">✦</span></div><div class="chat-preview">Новый вход в MAX Обнаружили<br>вход в профиль с вашим номером...</div></div><div class="chat-meta">15:37<span class="badge">1</span></div></div>
+      <div class="chat-row selected"><div class="avatar av-photo"></div><div class="chat-main"><div class="chat-name">Екатерина Бабинцева</div><div class="chat-preview">посмотрено</div></div><div class="chat-meta"><span class="check">✓✓</span>6 окт.</div></div>
+      <div class="chat-row"><div class="avatar av-cyan">ИМ</div><div class="chat-main"><div class="chat-name">ИТ Металлагрант <span style="color:#aaa">♨</span></div><div class="chat-preview">производство Профлист: спасибо</div></div><div class="chat-meta">6 окт.</div></div>
+      <div class="chat-row"><div class="avatar" style="background:#fff;color:#a73a3a;font-size:13px;border:1px solid #ddd">МГ</div><div class="chat-main"><div class="chat-name">Алёна юрист</div><div class="chat-preview">▣ Стикер</div></div><div class="chat-meta">5 окт.</div></div>
+      <div class="chat-row"><div class="avatar av-red">МТ</div><div class="chat-main"><div class="chat-name">Мария Третьякова</div><div class="chat-preview">сейчас в табель отгишусь</div></div><div class="chat-meta"><span class="check">✓✓</span>5 окт.</div></div>
+      <div class="chat-row"><div class="avatar av-dark">ДК</div><div class="chat-main"><div class="chat-name">Дмитрий Карамышев</div><div class="chat-preview">не за что)</div></div><div class="chat-meta"><span class="check">✓✓</span>1 окт.</div></div>
+      <div class="chat-row"><div class="avatar av-purple">СВ</div><div class="chat-main"><div class="chat-name">Светлана Валерьевна</div><div class="chat-preview">Да</div></div><div class="chat-meta">1 окт.</div></div>
+      <div class="chat-row"><div class="avatar av-red">Ж</div><div class="chat-main"><div class="chat-name">Женечка💗</div><div class="chat-preview">Теперь в MAX! 👉 Напишите что-нибудь!</div></div><div class="chat-meta">30 сент.</div></div>
+      <div class="chat-row"><div class="avatar av-dark">ЕД</div><div class="chat-main"><div class="chat-name">Евгений Дубиков механик</div><div class="chat-preview">Жень, вот твой пароль от 1С: Ву5д...</div></div><div class="chat-meta"><span class="check">✓✓</span>28 сент.</div></div>
+      <div class="chat-row"><div class="avatar av-green">ОТ</div><div class="chat-main"><div class="chat-name">Ольга Толстых рабочий</div><div class="chat-preview">8-905-855-89-54 Дубиков Евгений</div></div><div class="chat-meta">28 сент.</div></div>
+    </div>
+  </section>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="back" aria-label="Назад"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5 7 12l7 7"/></svg></button>
+      <div class="profile"><div class="p-avatar"></div><div><div class="profile-name">Екатерина Бабинцева</div><div class="profile-sub">25 мин назад</div></div></div>
+      <div class="top-actions"><button class="icon-btn"><svg viewBox="0 0 24 24"><path d="M6.5 4.5c.4-.4 1-.5 1.5-.2l3 1.5c.6.3.9 1 .7 1.6l-.7 2.2c-.1.4 0 .8.3 1.1l2 2c.3.3.7.4 1.1.3l2.2-.7c.6-.2 1.3.1 1.6.7l1.5 3c.3.5.2 1.1-.2 1.5l-1.5 1.5c-.7.7-1.8 1-2.8.7-2.5-.7-4.9-2.2-7-4.3s-3.6-4.5-4.3-7c-.3-1 .0-2.1.7-2.8L6.5 4.5Z"/></svg></button><button class="icon-btn"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="3"/><path d="m8 7 1.4-2h5.2L16 7M9 12h6"/></svg></button><button class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></div>
+    </header>
+    <section class="messages">
+      <div class="msg out">Потому что у Романа вылезла задача, что оказывать услугу можно в платежном календаре выставлять сумму самому. Напрямую в поле нельзя вписать, 1С не даёт, а вот через калькулятор рядом, спокойно можно. Также в некоторых заказах с копейками проблемы, где-то +1 копейка, где-то -1 в заказах. <span class="time">15:22 <span class="tick">✓✓</span></span></div>
+      <div class="msg in small">Привет <span class="time">16:06</span></div>
+      <div class="msg in medium">Да. Помню. Отчет в главном расширении прям как Роман пишешь <span class="time">16:06</span><div class="reaction"><span>🤣</span>1</div></div>
+      <div class="msg out medium">там короче прикол, в том, что остатки меняют и почему-то в некоторых случаях копейки слетают <span class="time">16:06 <span class="tick">✓✓</span></span></div>
+      <div class="msg out medium"><div class="quote blue"><b>Екатерина Бабинцева</b>Да. Помню. Отчет в главном расширении прям как Роман пишешь</div><div>🤣</div><div class="reaction"><span>🤣</span>1</div><span class="time">16:07 <span class="tick">✓✓</span></span></div>
+      <div class="msg in wide"><div class="quote"><b>Александр Кудинов</b>там короче прикол, в том, что остатки меняют и почему-то в некоторых случаях копейки слетают</div><div>Не подскажу тебе. Вообще не пойму где там что</div><div class="reaction"><span>👍</span>1</div><span class="time">16:08</span></div>
+      <div class="msg out medium">это не срочная задача, до пятницы ждёт. Просто делаю анонс) <span class="time">16:08 <span class="tick">✓✓</span></span></div>
+      <div class="msg in small">А может ты сам покопаешься в копии? <span class="time">16:09</span></div>
+      <div class="msg out small">окей <span class="time">16:09 <span class="tick">✓✓</span></span></div>
+      <div class="msg out small">посмотрю <span class="time">16:09 <span class="tick">✓✓</span></span></div>
+      <div class="composer"><div class="attach"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="m8.5 12.5 5.8-5.8a3 3 0 0 1 4.2 4.2L11 18.4a5 5 0 0 1-7.1-7.1l7-7"/></svg></div><input placeholder="Сообщение" /><div class="right"><svg viewBox="0 0 24 24"><path d="M12 3 20 7v6c0 4-3 7-8 8-5-1-8-4-8-8V7l8-4Z"/><circle cx="8.5" cy="12" r=".8" fill="currentColor"/><circle cx="12" cy="12" r=".8" fill="currentColor"/><circle cx="15.5" cy="12" r=".8" fill="currentColor"/></svg><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="3"/><circle cx="12" cy="12" r="3"/></svg><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M5 9h14"/></svg></div></div>
+    </section>
+  </main>
+</div>
+<script>
+// Минимальная интерактивность: выбор чата и добавление сообщения.
+const rows = document.querySelectorAll('.chat-row');
+rows.forEach(row => row.addEventListener('click', () => {
+  rows.forEach(r => r.classList.remove('selected'));
+  row.classList.add('selected');
+}));
+const input = document.querySelector('.composer input');
+input.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && input.value.trim()){
+    const m=document.createElement('div');
+    m.className='msg out small';
+    m.innerHTML = input.value.replace(/[&<>]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[s])) + ' <span class="time">сейчас <span class="tick">✓✓</span></span>';
+    document.querySelector('.messages').insertBefore(m, document.querySelector('.composer'));
+    input.value='';
+  }
+});
+</script>
+</body>
+</html>

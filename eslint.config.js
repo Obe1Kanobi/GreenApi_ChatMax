@@ -8,7 +8,7 @@ import tanstackQuery from '@tanstack/eslint-plugin-query'
 const tsFiles = ['**/*.{ts,tsx}']
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'vite.config.ts'] },
   {
     ...js.configs.recommended,
     files: tsFiles,
@@ -31,7 +31,7 @@ export default tseslint.config(
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        project: ['./tsconfig.app.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
