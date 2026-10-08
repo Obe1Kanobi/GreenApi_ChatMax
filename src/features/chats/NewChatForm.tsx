@@ -4,8 +4,9 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } 
 type NewChatFormProps = {
   open: boolean
   onClose: () => void
-  /** Вызывается с нормализованным номером (79991234567) */
-  onCreate: (phone: string) => void
+  /** Вызывается с нормализованным номером (79991234567);
+   * асинхронный — CheckAccount GREEN-API; бросает ошибку при неудаче */
+  onCreate: (phone: string) => Promise<void>
 }
 
 /** Нормализация: убрать лишнее, ведущую 8 заменить на 7 (README, раздел 7) */
@@ -24,17 +25,25 @@ function normalizePhone(raw: string): string {
 export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProps) {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const normalized = normalizePhone(phone)
     if (!/^7\d{10}$|^375\d{9}$/.test(normalized)) {
       setError('Введите номер в формате +7 (999) 123-45-67')
       return
     }
-    onCreate(normalized)
-    setPhone('')
+    setLoading(true)
     setError(null)
+    try {
+      await onCreate(normalized)
+      setPhone('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось создать чат')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -58,8 +67,10 @@ export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProp
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Отмена</Button>
-          <Button type="submit" variant="contained">
+          <Button onClick={onClose} disabled={loading}>
+            Отмена
+          </Button>
+          <Button type="submit" variant="contained" loading={loading}>
             Создать
           </Button>
         </DialogActions>

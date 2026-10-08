@@ -21,6 +21,9 @@ export type ChatAvatar = {
 /** Один элемент списка чатов */
 export type ChatSummary = {
   id: string
+  /** Идентификатор чата GREEN-API (например, 79991234567@c.us) —
+   * заполняется после CheckAccount; у демо-чатов отсутствует */
+  chatId?: string
   name: string
   /** Маркер после имени: символ и цвет (✦ синий, ♨ серый и т.п.) */
   marker?: { symbol: string; color: string }

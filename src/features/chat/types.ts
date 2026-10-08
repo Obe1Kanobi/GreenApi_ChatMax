@@ -33,4 +33,6 @@ export type ChatMessage = {
   reaction?: Reaction
   /** Галочки «прочитано» ✓✓ у исходящих */
   read?: boolean
+  /** Статус отправки через API sendMessage (только у исходящих) */
+  status?: 'sending' | 'sent' | 'failed'
 }

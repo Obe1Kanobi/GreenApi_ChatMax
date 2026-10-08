@@ -7,6 +7,7 @@ import NewChatForm from './features/chats/NewChatForm'
 import type { ChatMessage } from './features/chat/types'
 import type { ChatSummary } from './features/chats/types'
 import { clearCredentials, loadCredentials } from './utils/storage'
+import { checkAccount, sendMessage } from './api/greenApi'
 import type { Credentials } from './api/types'
 
 /*
@@ -185,30 +186,71 @@ export default function App() {
     setCreds(null)
   }
 
-  function handleSend(text: string) {
+  /**
+   * Отправка сообщения: POST ${apiUrl}/waInstance${idInstance}/sendMessage/${apiTokenInstance}
+   * (README, раздел 5; docs: green-api.com/v3/docs/api/sending/SendMessage).
+   * Добавляем сообщение локально сразу (status 'sending'), затем обновляем
+   * статус по результату запроса. У демо-чатов без chatId API не вызывается.
+   */
+  async function handleSend(text: string) {
+    const localId = `local-${Date.now()}`
+    const chatId = chats.find((c) => c.id === selectedId)?.chatId
+
+    // Оптимистично показываем сообщение в ленте
     setMessagesByChat((prev) => {
       const list = prev[selectedId] ?? []
       const message: ChatMessage = {
-        id: `local-${Date.now()}`,
+        id: localId,
         direction: 'out',
         text,
         time: nowTime(),
-        read: true,
+        read: false,
+        status: chatId ? 'sending' : 'sent',
       }
       return { ...prev, [selectedId]: [...list, message] }
     })
     setChats((prev) =>
       prev.map((c) => (c.id === selectedId ? { ...c, preview: text, time: 'сейчас' } : c)),
     )
+
+    // Демо-чат без chatId — дальше только локально
+    if (!creds || !chatId) return
+
+    try {
+      const res = await sendMessage(creds, chatId, text)
+      setMessagesByChat((prev) => ({
+        ...prev,
+        [selectedId]: (prev[selectedId] ?? []).map((m) =>
+          m.id === localId ? { ...m, id: res.idMessage, status: 'sent' } : m,
+        ),
+      }))
+    } catch {
+      setMessagesByChat((prev) => ({
+        ...prev,
+        [selectedId]: (prev[selectedId] ?? []).map((m) =>
+          m.id === localId ? { ...m, status: 'failed' } : m,
+        ),
+      }))
+    }
   }
 
-  /** Создание чата: пока локально, позже — CheckAccount (README, раздел 7) */
-  function handleCreateChat(phone: string) {
+  /**
+   * Создание чата: CheckAccount (POST .../checkAccount) переводит
+   * номер телефона в chatId (README, раздел 7).
+   */
+  async function handleCreateChat(phone: string) {
+    if (!creds) throw new Error('Нет данных авторизации')
+    const { exist, chatId } = await checkAccount(creds, Number(phone))
+    if (!exist) {
+      throw new Error('Аккаунт MAX с таким номером не найден')
+    }
+
     const id = `local-${phone}`
     setChats((prev) => {
       if (prev.some((c) => c.id === id)) return prev
       const chat: ChatSummary = {
         id,
+        chatId,
         name: formatPhone(phone),
         avatar: { bg: '#54a84a', text: phone.slice(-2).toUpperCase(), fontSize: 16 },
         preview: 'Нет сообщений',

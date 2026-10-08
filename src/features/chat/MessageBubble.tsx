@@ -14,7 +14,7 @@ const SIZE_MAX_WIDTH: Record<NonNullable<ChatMessage['size']>, string> = {
 }
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
-  const { direction, size = 'auto', quote, reaction, time, read } = message
+  const { direction, size = 'auto', quote, reaction, time, read, status } = message
   const out = direction === 'out'
 
   return (
@@ -85,7 +85,17 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         }}
       >
         {time}
-        {out && read && (
+        {out && status === 'sending' && (
+          <Box component="span" sx={{ opacity: 0.6 }}>
+            {' '}🕐
+          </Box>
+        )}
+        {out && status === 'failed' && (
+          <Box component="span" sx={{ color: '#e2574c' }}>
+            {' '}⚠ не отправлено
+          </Box>
+        )}
+        {out && status !== 'sending' && status !== 'failed' && read && (
           <Box component="span" sx={{ color: '#159ce8' }}>
             {' '}✓✓
           </Box>
