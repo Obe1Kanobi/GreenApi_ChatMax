@@ -4,7 +4,7 @@ import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  base: '/GreenApi_ChatMax/',
     resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -17,9 +17,4 @@ export default defineConfig({
     },
   },
   plugins: [react()],
-  server: {
-    port: 5173,
-    strictPort: false,
-    host: true,
-  },
 })
