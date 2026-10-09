@@ -38,14 +38,7 @@ git clone https://github.com/your-username/GreenApi_ChatMax.git
 cd GreenApi_ChatMax
 
 # Установить зависимости
-npm install
-# или
 yarn install
-# или
-pnpm install
-
-# Создать файл конфигурации из примера
-cp .env.example .env
 
 # Запустить в режиме разработки
 npm run dev
