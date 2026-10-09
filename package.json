@@ -17,6 +17,7 @@
     "@mui/icons-material": "^9.4.0",
     "@mui/material": "^9.4.0",
     "@mui/styled-engine-sc": "^9.4.0",
+    "@tanstack/react-query": "^5.104.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-is": "18.3.1",

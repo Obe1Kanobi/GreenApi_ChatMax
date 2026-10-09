@@ -28,6 +28,8 @@ export type ChatMessage = {
   text: string
   /** Метка времени: '15:22', 'сейчас' */
   time: string
+  /** UNIX-время в секундах (из API) — для сортировки при слиянии с историей */
+  ts?: number
   size?: BubbleSize
   quote?: Quote
   reaction?: Reaction

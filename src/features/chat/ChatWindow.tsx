@@ -1,4 +1,4 @@
-import { Avatar, Box, IconButton, Stack, Typography } from '@mui/material'
+import { Avatar, Box, IconButton, LinearProgress, Stack, Typography } from '@mui/material'
 import CallIcon from '@mui/icons-material/Call'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import SearchIcon from '@mui/icons-material/Search'
@@ -11,13 +11,15 @@ import type { ChatMessage } from './types'
 type ChatWindowProps = {
   chat: ChatSummary | null
   messages: ChatMessage[]
+  /** true — идёт загрузка истории (GetChatHistory) */
+  loadingHistory?: boolean
   onSend: (text: string) => void
 }
 
 /**
  * Окно одного чата (mockup: .main): топбар + лента сообщений + композер.
  */
-export default function ChatWindow({ chat, messages, onSend }: ChatWindowProps) {
+export default function ChatWindow({ chat, messages, loadingHistory, onSend }: ChatWindowProps) {
   if (!chat) {
     return (
       <Stack
@@ -72,6 +74,10 @@ export default function ChatWindow({ chat, messages, onSend }: ChatWindowProps) 
           </Box>
         </Stack>
       </Stack>
+
+      {loadingHistory && (
+        <LinearProgress sx={{ position: 'absolute', top: 62, left: 0, right: 0, zIndex: 2 }} />
+      )}
 
       <MessageList messages={messages} />
       <MessageInput onSend={onSend} />

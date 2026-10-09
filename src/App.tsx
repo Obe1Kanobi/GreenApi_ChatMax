@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Stack } from '@mui/material'
 import LoginPage from './features/auth/LoginPage'
 import ChatWindow from './features/chat/ChatWindow'
@@ -6,162 +6,26 @@ import Sidebar from './features/chats/Sidebar'
 import NewChatForm from './features/chats/NewChatForm'
 import type { ChatMessage } from './features/chat/types'
 import type { ChatSummary } from './features/chats/types'
-import { clearCredentials, loadCredentials } from './utils/storage'
-import { checkAccount, sendMessage } from './api/greenApi'
+import {
+  clearChatState,
+  clearCredentials,
+  loadChatState,
+  loadCredentials,
+  saveChatState,
+} from './utils/storage'
+import { checkAccount, getMessage, sendMessage } from './api/greenApi'
+import { useChatHistoriesQueue } from './hooks/useChatHistoriesQueue'
 import type { Credentials } from './api/types'
 
-/*
- * ВРЕМЕННЫЕ демо-данные из chat_mockup.html — до интеграции со стором
- * (README, разделы 3–7). Компоненты уже принимают данные через пропсы,
- * поэтому после появления стора заменим только состояние в этом файле.
- */
-const DEMO_CHATS: ChatSummary[] = [
-  {
-    id: 'security',
-    name: 'Безопасность',
-    marker: { symbol: ' ✦', color: '#0d83fb' },
-    avatar: { bg: 'linear-gradient(135deg,#4d4dff,#7d35df)', text: '✓', fontSize: 28 },
-    preview: 'Новый вход в MAX Обнаружили вход в профиль с вашим номером...',
-    time: '15:37',
-    unread: 1,
-  },
-  {
-    id: 'ekaterina',
-    name: 'Екатерина Бабинцева',
-    avatar: { bg: 'linear-gradient(135deg,#d9b18a,#6c4a36)' },
-    preview: 'посмотрено',
-    time: '6 окт.',
-    read: true,
-  },
-  {
-    id: 'metalgranta',
-    name: 'ИТ Металлагрант',
-    marker: { symbol: ' ♨', color: '#aaa' },
-    avatar: { bg: '#18bdd5', text: 'ИМ' },
-    preview: 'производство Профлист: спасибо',
-    time: '6 окт.',
-  },
-  {
-    id: 'alena',
-    name: 'Алёна юрист',
-    avatar: { bg: '#fff', text: 'МГ', color: '#a73a3a', fontSize: 13, border: '1px solid #ddd' },
-    preview: '▣ Стикер',
-    time: '5 окт.',
-  },
-  {
-    id: 'maria',
-    name: 'Мария Третьякова',
-    avatar: { bg: '#9d2a4d', text: 'МТ' },
-    preview: 'сейчас в табель отгишусь',
-    time: '5 окт.',
-    read: true,
-  },
-  {
-    id: 'dmitry',
-    name: 'Дмитрий Карамышев',
-    avatar: { bg: '#1e2932', text: 'ДК' },
-    preview: 'не за что)',
-    time: '1 окт.',
-    read: true,
-  },
-  {
-    id: 'svetlana',
-    name: 'Светлана Валерьевна',
-    avatar: { bg: '#7758dc', text: 'СВ' },
-    preview: 'Да',
-    time: '1 окт.',
-  },
-  {
-    id: 'zhenechka',
-    name: 'Женечка💗',
-    avatar: { bg: '#9d2a4d', text: 'Ж' },
-    preview: 'Теперь в MAX! 👉 Напишите что-нибудь!',
-    time: '30 сент.',
-  },
-  {
-    id: 'evgeny',
-    name: 'Евгений Дубиков механик',
-    avatar: { bg: '#1e2932', text: 'ЕД' },
-    preview: 'Жень, вот твой пароль от 1С: Ву5д...',
-    time: '28 сент.',
-    read: true,
-  },
-  {
-    id: 'olga',
-    name: 'Ольга Толстых рабочий',
-    avatar: { bg: '#54a84a', text: 'ОТ' },
-    preview: '8-905-855-89-54 Дубиков Евгений',
-    time: '28 сент.',
-  },
-]
-
-const DEMO_MESSAGES: ChatMessage[] = [
-  {
-    id: 'm1',
-    direction: 'out',
-    text: 'Потому что у Романа вылезла задача, что оказывать услугу можно в платежном календаре выставлять сумму самому. Напрямую в поле нельзя вписать, 1С не даёт, а вот через калькулятор рядом, спокойно можно. Также в некоторых заказах с копейками проблемы, где-то +1 копейка, где-то -1 в заказах.',
-    time: '15:22',
-    read: true,
-  },
-  { id: 'm2', direction: 'in', text: 'Привет', time: '16:06', size: 'small' },
-  {
-    id: 'm3',
-    direction: 'in',
-    text: 'Да. Помню. Отчет в главном расширении прям как Роман пишешь',
-    time: '16:06',
-    size: 'medium',
-    reaction: { emoji: '🤣', count: 1 },
-  },
-  {
-    id: 'm4',
-    direction: 'out',
-    text: 'там короче прикол, в том, что остатки меняют и почему-то в некоторых случаях копейки слетают',
-    time: '16:06',
-    size: 'medium',
-    read: true,
-  },
-  {
-    id: 'm5',
-    direction: 'out',
-    text: '🤣',
-    time: '16:07',
-    size: 'medium',
-    read: true,
-    quote: {
-      author: 'Екатерина Бабинцева',
-      text: 'Да. Помню. Отчет в главном расширении прям как Роман пишешь',
-      blue: true,
-    },
-    reaction: { emoji: '🤣', count: 1 },
-  },
-  {
-    id: 'm6',
-    direction: 'in',
-    text: 'Не подскажу тебе. Вообще не пойму где там что',
-    time: '16:08',
-    size: 'wide',
-    quote: {
-      author: 'Александр Кудинов',
-      text: 'там короче прикол, в том, что остатки меняют и почему-то в некоторых случаях копейки слетают',
-    },
-    reaction: { emoji: '👍', count: 1 },
-  },
-  {
-    id: 'm7',
-    direction: 'out',
-    text: 'это не срочная задача, до пятницы ждёт. Просто делаю анонс)',
-    time: '16:08',
-    size: 'medium',
-    read: true,
-  },
-  { id: 'm8', direction: 'in', text: 'А может ты сам покопаешься в копии?', time: '16:09', size: 'small' },
-  { id: 'm9', direction: 'out', text: 'окей', time: '16:09', size: 'small', read: true },
-  { id: 'm10', direction: 'out', text: 'посмотрю', time: '16:09', size: 'small', read: true },
-]
 
 /** Текущее время HH:MM для отправленных сообщений */
 function nowTime(): string {
   return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** UNIX-время (сек) → 'HH:MM' — для превью чатов из истории */
+function formatStamp(ts: number): string {
+  return new Date(ts * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
 /** Красивый вывод номера: 79991234567 → +7 (999) 123-45-67 */
@@ -174,16 +38,75 @@ function formatPhone(digits: string): string {
 
 export default function App() {
   const [creds, setCreds] = useState<Credentials | null>(() => loadCredentials())
-  const [chats, setChats] = useState<ChatSummary[]>(DEMO_CHATS)
-  const [selectedId, setSelectedId] = useState<string>('ekaterina')
-  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>({
-    ekaterina: DEMO_MESSAGES,
+  // Чаты переживают перезагрузку: состояние чатов хранится в localStorage,
+  // история сообщений подтягивается опросом GetChatHistory.
+  // Моковые данные убраны: стартуем с пустого списка, чаты появляются
+  // через создание по номеру (CheckAccount); discovery новых чатов —
+  // по входящим сообщениям в истории.
+  // Демо-чаты из старых сессий (без chatId) отфильтровываем.
+  const [chats, setChats] = useState<ChatSummary[]>(() =>
+    (loadChatState()?.chats ?? []).filter((c) => Boolean(c.chatId)),
+  )
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const persisted = loadChatState()
+    if (!persisted) return null
+    const exists = persisted.chats.some((c) => c.id === persisted.selectedId && c.chatId)
+    return exists ? persisted.selectedId : null
   })
+  const [messagesByChat, setMessagesByChat] = useState<Record<string, ChatMessage[]>>(
+    () => loadChatState()?.messagesByChat ?? {},
+  )
   const [newChatOpen, setNewChatOpen] = useState(false)
+
+  // Сохраняем чаты при каждом изменении состояния
+  useEffect(() => {
+    saveChatState({ chats, messagesByChat, selectedId })
+  }, [chats, messagesByChat, selectedId])
 
   function handleLogout() {
     clearCredentials()
+    clearChatState()
     setCreds(null)
+  }
+
+  /**
+   * Слияние результата опроса истории чата с локальным состоянием.
+   * Обновляет и превью чата в сайдбаре по последнему сообщению.
+   */
+  const handleMerged = useCallback((chatSummaryId: string, merged: ChatMessage[]) => {
+    setMessagesByChat((prev) => ({ ...prev, [chatSummaryId]: merged }))
+    const last = merged[merged.length - 1]
+    if (last) {
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatSummaryId
+            ? { ...c, preview: last.text, time: last.ts ? formatStamp(last.ts) : c.time }
+            : c,
+        ),
+      )
+    }
+  }, [])
+
+  /**
+   * Очередь запросов GetChatHistory (см. useChatHistoriesQueue):
+   * все чаты опрашиваются по очереди раз в 10 с, открытый — первым,
+   * между запросами пауза 0.7 с — без 429. Видно и наши сообщения,
+   * и сообщения собеседника; у чатов без chatId опрос выключен.
+   */
+  const histories = useChatHistoriesQueue({
+    creds,
+    chats,
+    selectedId,
+    messagesByChat,
+    onMerged: handleMerged,
+  })
+
+  /** Выбор чата: сохранённые сообщения показываются сразу,
+   * история подтягивается очередью useChatHistoriesQueue */
+  function handleSelectChat(id: string) {
+    setSelectedId(id)
+    // Сбрасываем счётчик непрочитанных у открытого чата
+    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)))
   }
 
   /**
@@ -193,12 +116,14 @@ export default function App() {
    * статус по результату запроса. У демо-чатов без chatId API не вызывается.
    */
   async function handleSend(text: string) {
+    const selected = selectedId
+    if (!selected) return
     const localId = `local-${Date.now()}`
-    const chatId = chats.find((c) => c.id === selectedId)?.chatId
+    const chatId = chats.find((c) => c.id === selected)?.chatId
 
     // Оптимистично показываем сообщение в ленте
     setMessagesByChat((prev) => {
-      const list = prev[selectedId] ?? []
+      const list = prev[selected] ?? []
       const message: ChatMessage = {
         id: localId,
         direction: 'out',
@@ -207,10 +132,10 @@ export default function App() {
         read: false,
         status: chatId ? 'sending' : 'sent',
       }
-      return { ...prev, [selectedId]: [...list, message] }
+      return { ...prev, [selected]: [...list, message] }
     })
     setChats((prev) =>
-      prev.map((c) => (c.id === selectedId ? { ...c, preview: text, time: 'сейчас' } : c)),
+      prev.map((c) => (c.id === selected ? { ...c, preview: text, time: 'сейчас' } : c)),
     )
 
     // Демо-чат без chatId — дальше только локально
@@ -220,18 +145,44 @@ export default function App() {
       const res = await sendMessage(creds, chatId, text)
       setMessagesByChat((prev) => ({
         ...prev,
-        [selectedId]: (prev[selectedId] ?? []).map((m) =>
+        [selected]: (prev[selected] ?? []).map((m) =>
           m.id === localId ? { ...m, id: res.idMessage, status: 'sent' } : m,
         ),
       }))
+      // GetMessage: уточняем доставку/прочтение отправленного сообщения
+      void confirmDelivery(selected, chatId, res.idMessage)
     } catch {
       setMessagesByChat((prev) => ({
         ...prev,
-        [selectedId]: (prev[selectedId] ?? []).map((m) =>
+        [selected]: (prev[selected] ?? []).map((m) =>
           m.id === localId ? { ...m, status: 'failed' } : m,
         ),
       }))
     }
+  }
+
+  /**
+   * POST getMessage: через паузу уточняем статус отправленного сообщения
+   * (sent / delivered / read). Ошибки игнорируем — статус всё равно
+   * обновится при следующем опросе истории.
+   */
+  function confirmDelivery(chatSummaryId: string, chatId: string, idMessage: string) {
+    if (!creds) return
+    setTimeout(async () => {
+      try {
+        const msg = await getMessage(creds, chatId, idMessage)
+        if (msg.statusMessage === 'read') {
+          setMessagesByChat((prev) => ({
+            ...prev,
+            [chatSummaryId]: (prev[chatSummaryId] ?? []).map((m) =>
+              m.id === idMessage ? { ...m, read: true } : m,
+            ),
+          }))
+        }
+      } catch {
+        // сообщение ещё в очереди или недоступно — не критично
+      }
+    }, 3000)
   }
 
   /**
@@ -261,6 +212,7 @@ export default function App() {
     setMessagesByChat((prev) => ({ ...prev, [id]: [] }))
     setSelectedId(id)
     setNewChatOpen(false)
+    // История созданного чата подтянется очередью useChatHistoriesQueue
   }
 
   if (!creds) {
@@ -268,6 +220,7 @@ export default function App() {
   }
 
   const selectedChat = chats.find((c) => c.id === selectedId) ?? null
+  const selectedMessages = selectedId ? (messagesByChat[selectedId] ?? []) : []
 
   return (
     <>
@@ -275,13 +228,14 @@ export default function App() {
         <Sidebar
           chats={chats}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={handleSelectChat}
           onNewChat={() => setNewChatOpen(true)}
           onLogout={handleLogout}
         />
         <ChatWindow
           chat={selectedChat}
-          messages={messagesByChat[selectedId] ?? []}
+          messages={selectedMessages}
+          loadingHistory={histories.isFetchingSelected}
           onSend={handleSend}
         />
       </Stack>

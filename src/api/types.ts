@@ -55,43 +55,33 @@ export type SendMessageResponse = {
   idMessage: string;
 };
 
-/** DELETE deleteNotification — подтверждение обработки уведомления */
-export type DeleteNotificationResponse = {
-  result: boolean;
-  reason?: string;
-};
-
 /**
- * Уведомления (README, раздел 6 «Цикл получения сообщений»).
+ * POST getChatHistory — элемент истории сообщений чата.
+ * Сортировка в ответе — по убыванию даты; глубина выгрузки —
+ * до 5000 сообщений за 3 месяца (README, раздел 5).
  */
-
-/** senderData из тела уведомления */
-export type SenderData = {
-  chatId: string;
-  chatName?: string;
-  sender?: string;
-  senderName?: string;
-  senderPhoneNumber?: number;
-};
-
-/** messageData из тела уведомления */
-export type MessageData = {
-  typeMessage: string;
-  textMessageData?: { textMessage: string };
-  extendedTextMessageData?: { text?: string };
-};
-
-/** body уведомления */
-export type NotificationBody = {
-  typeWebhook: string;
-  timestamp: number;
+export type ChatHistoryItem = {
+  /** outgoing — исходящее, incoming — входящее */
+  type: "outgoing" | "incoming";
   idMessage: string;
-  senderData?: SenderData;
-  messageData?: MessageData;
-};
-
-/** GET receiveNotification — одно уведомление из очереди FIFO */
-export type Notification = {
-  receiptId: number;
-  body: NotificationBody;
+  /** UNIX-время, секунды */
+  timestamp: number;
+  typeMessage: string;
+  chatId: string;
+  chatType?: string;
+  /** Статус исходящего: sent / delivered / read */
+  statusMessage?: string;
+  sendByApi?: boolean;
+  senderId?: string;
+  senderName?: string;
+  senderContactName?: string;
+  textMessage?: string;
+  caption?: string;
+  fileName?: string;
+  extendedTextMessage?: { text?: string; title?: string; description?: string };
+  isDeleted?: boolean;
+  isEdited?: boolean;
+  /** Прочитано (у входящих; у исходящих — statusMessage) */
+  isRead?: boolean;
+  isReadTimestamp?: number;
 };

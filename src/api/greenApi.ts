@@ -1,9 +1,8 @@
 import type {
   CheckAccountResponse,
+  ChatHistoryItem,
   Credentials,
-  DeleteNotificationResponse,
   GetStateInstanceResponse,
-  Notification,
   SendMessageResponse,
 } from './types'
 
@@ -118,25 +117,33 @@ export async function sendMessage(
 }
 
 /**
- * Одно уведомление из очереди FIFO.
- * receiveTimeout 5–60 с; пустой ответ — норма, а не ошибка (вернём null).
+ * POST getMessage — одно сообщение чата по его id
+ * (docs: green-api.com/v3/docs/api/journals/GetMessage).
+ * Тело ответа совпадает с элементом истории (ChatHistoryItem).
+ * Используем для подтверждения статуса отправленных сообщений
+ * (sent → delivered → read).
  */
-export async function receiveNotification(
+export function getMessage(
   creds: Credentials,
-  receiveTimeout = 20,
-  signal?: AbortSignal,
-): Promise<Notification | null> {
-  const url = `${endpoint(creds, 'receiveNotification')}?receiveTimeout=${receiveTimeout}`
-  const data = await request<Notification | null>(url, { method: 'GET', signal })
-  return data ?? null
+  chatId: string,
+  idMessage: string,
+): Promise<ChatHistoryItem> {
+  return request<ChatHistoryItem>(endpoint(creds, 'getMessage'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId, idMessage }),
+  })
 }
 
-/** Подтверждение обработки уведомления — вызывать для каждого, иначе очередь встанет. */
-export function deleteNotification(
+/** POST getChatHistory — история сообщений чата (сортировка по убыванию даты). */
+export function getChatHistory(
   creds: Credentials,
-  receiptId: number,
-): Promise<DeleteNotificationResponse> {
-  return request<DeleteNotificationResponse>(`${endpoint(creds, 'deleteNotification')}/${receiptId}`, {
-    method: 'DELETE',
+  chatId: string,
+  count = 100,
+): Promise<ChatHistoryItem[]> {
+  return request<ChatHistoryItem[]>(endpoint(creds, 'getChatHistory'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId, count }),
   })
 }
