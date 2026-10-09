@@ -88,6 +88,18 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return JSON.parse(text) as T
 }
 
+/**
+ * Аккаунт по номеру не зарегистрирован: CheckAccount вернул exist: false.
+ * Отдельный класс — UI показывает нестандартный экран «нужно
+ * зарегистрироваться» с кнопкой ОК, а не просто текст ошибки в поле.
+ */
+export class NotRegisteredError extends Error {
+  constructor() {
+    super('Аккаунт MAX с таким номером не найден')
+    this.name = 'NotRegisteredError'
+  }
+}
+
 /** Проверка учётных данных. Это и есть «логин»: ждём stateInstance === 'authorized'. */
 export function getStateInstance(creds: Credentials): Promise<GetStateInstanceResponse> {
   return request<GetStateInstanceResponse>(endpoint(creds, 'getStateInstance'))

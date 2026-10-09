@@ -103,13 +103,21 @@ function toLastMessage(
  *  1) индекс контактов по нормализованному chatId;
  *  2) каждая запись обоих журналов → chatId → последнее сообщение чата
  *     (при конфликте остаётся самое свежее по timestamp);
- *  3) сортировка по timestamp по убыванию — свежие вверху.
+ *  3) подсчёт непрочитанных: у каждой записи есть флаг isRead — записи
+ *     с isRead === false дают chatId +1 в счётчик непрочитанных (isRead
+ *     true/undefined — сообщение прочитано, цифру не показываем);
+ *  4) сортировка по timestamp по убыванию — свежие вверху.
  */
 function buildRecentChats(
   incoming: LastMessageRecord[] | null,
   outgoing: LastMessageRecord[] | null,
   contacts: ContactItem[],
-): { recentChats: RecentChat[]; lastMessageByChat: Record<string, RecentChatLastMessage> } {
+): {
+  recentChats: RecentChat[]
+  lastMessageByChat: Record<string, RecentChatLastMessage>
+  /** нормализованный chatId → число непрочитанных записей (isRead === false) */
+  unreadByChat: Record<string, number>
+} {
   const contactByChatId = new Map<string, ContactItem>()
   for (const contact of contacts) {
     const key = normalizeChatId(contact.chatId)
@@ -119,11 +127,18 @@ function buildRecentChats(
   /** chatId → самое свежее сообщение из обоих журналов */
   const latestByChatId = new Map<string, RecentChatLastMessage>()
 
+  /** chatId → счётчик записей с isRead === false (непрочитанные) */
+  const unreadByChat: Record<string, number> = {}
+
   const collect = (records: LastMessageRecord[] | null, type: 'incoming' | 'outgoing') => {
     if (!records) return
     for (const record of records) {
       const chatId = recordChatId(record)
       if (!chatId || !record.idMessage) continue
+      // isRead false — сообщение не прочитано: +1 к непрочитанным чата
+      if (record.isRead === false) {
+        unreadByChat[chatId] = (unreadByChat[chatId] ?? 0) + 1
+      }
       const message = toLastMessage(record, type)
       const current = latestByChatId.get(chatId)
       if (!current || message.timestamp > current.timestamp) {
@@ -146,7 +161,7 @@ function buildRecentChats(
 
   recentChats.sort((a, b) => b.lastMessage.timestamp - a.lastMessage.timestamp)
 
-  return { recentChats, lastMessageByChat }
+  return { recentChats, lastMessageByChat, unreadByChat }
 }
 
 /** reason у отклонённого промиса — any: приводим к Error без unsafe-присваиваний */
@@ -205,7 +220,7 @@ export function useRecentChats({
   const journals = journalsQuery.data
 
   // Мемоизация не нужна: пересборка — дешёвые Map/сорт поверх уже загруженных массивов
-  const { recentChats, lastMessageByChat } = buildRecentChats(
+  const { recentChats, lastMessageByChat, unreadByChat } = buildRecentChats(
     journals?.incoming ?? null,
     journals?.outgoing ?? null,
     contacts ?? [],
@@ -223,8 +238,18 @@ export function useRecentChats({
     recentChats,
     /** map: chatId (нормализованный) → последнее сообщение — для превью в списке */
     lastMessageByChat,
+    /**
+     * map: chatId (нормализованный) → число непрочитанных записей журналов
+     * (isRead === false). Число для бейджа списка чатов.
+     */
+    unreadByChat,
     /** Идёт загрузка журналов (контакты получены, но Last*-запросы ещё не завершены) */
     isLoading: journalsQuery.isPending,
+    /**
+     * true — журнальные запросы завершены (данные или ошибка). Створка для
+     * useChatHistories: GetChatHistory стартует только после Last*-запросов.
+     */
+    isSettled: !journalsQuery.isPending,
     /** true — оба журнальных запроса упали; частичный результат ошибкой не считается */
     isError,
     /** Первая из ошибок (для отображения; при частичном результате тоже заполнена) */

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
+import { NotRegisteredError } from '../../api/greenApi'
 
 type NewChatFormProps = {
   open: boolean
   onClose: () => void
   /** Вызывается с нормализованным номером (79991234567);
-   * асинхронный — CheckAccount GREEN-API; бросает ошибку при неудаче */
+   * асинхронный — CheckAccount GREEN-API; бросает ошибку при неудаче,
+   * NotRegisteredError — когда аккаунта с таким номером нет (exist: false) */
   onCreate: (phone: string) => Promise<void>
 }
 
@@ -19,13 +21,19 @@ function normalizePhone(raw: string): string {
 }
 
 /**
- * Диалог создания нового чата. Пока добавляет чат локально;
- * интеграция с CheckAccount (GREEN-API) — отдельный шаг (стор).
+ * Диалог создания нового чата.
+ *
+ * CheckAccount exist: true — чат создаётся (handleCreateChat в App) и
+ * становится первым в списке: пользователь сразу пишет ему сообщение.
+ * exist: false — показываем сообщение, что пользователь не зарегистрирован
+ * и ему нужно зарегистрироваться, с кнопкой «ОК», закрывающей диалог.
  */
 export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProps) {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /** exist: false — экран «нужно зарегистрироваться» вместо формы */
+  const [notRegistered, setNotRegistered] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -40,46 +48,76 @@ export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProp
       await onCreate(normalized)
       setPhone('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось создать чат')
+      if (err instanceof NotRegisteredError) {
+        // Пользователь не зарегистрирован — переходим на экран с кнопкой ОК
+        setNotRegistered(true)
+      } else {
+        setError(err instanceof Error ? err.message : 'Не удалось создать чат')
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  /** Закрытие диалога: сбрасываем состояние, включая экран «не зарегистрирован» */
+  function handleClose() {
+    setNotRegistered(false)
+    setError(null)
+    onClose()
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      {/* handleSubmit async: промис не передаём напрямую в onSubmit */}
-      <form
-        onSubmit={(e) => {
-          void handleSubmit(e)
-        }}
-      >
-        <DialogTitle>Новый чат</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            margin="dense"
-            label="Номер телефона"
-            placeholder="+7 (999) 123-45-67"
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value)
-              setError(null)
-            }}
-            error={Boolean(error)}
-            helperText={error}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} disabled={loading}>
-            Отмена
-          </Button>
-          <Button type="submit" variant="contained" loading={loading}>
-            Создать
-          </Button>
-        </DialogActions>
-      </form>
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+      {notRegistered ? (
+        <>
+          <DialogTitle>Пользователь не зарегистрирован</DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Пользователь с этим номером не зарегистрирован в MAX.
+              Чтобы начать переписку, ему нужно зарегистрироваться.
+            </Alert>
+          </DialogContent>
+          <DialogActions>
+            {/* ОК закрывает модальное окно */}
+            <Button variant="contained" onClick={handleClose}>
+              ОК
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        /* handleSubmit async: промис не передаём напрямую в onSubmit */
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e)
+          }}
+        >
+          <DialogTitle>Новый чат</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              fullWidth
+              margin="dense"
+              label="Номер телефона"
+              placeholder="+7 (999) 123-45-67"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value)
+                setError(null)
+              }}
+              error={Boolean(error)}
+              helperText={error}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose} disabled={loading}>
+              Отмена
+            </Button>
+            <Button type="submit" variant="contained" loading={loading}>
+              Создать
+            </Button>
+          </DialogActions>
+        </form>
+      )}
     </Dialog>
   )
 }

@@ -21,7 +21,10 @@ export function mapHistoryItem(item: ChatHistoryItem): ChatMessage | null {
     read:
       item.type === 'outgoing'
         ? item.statusMessage === 'read' || item.isRead === true
-        : undefined,
+        // Входящие: непрочитанным считается только сообщение с isRead === false.
+        // isRead undefined (старые записи API) — считаем прочитанным, чтобы
+        // не показывать цифру у ранее прочитанных сообщений.
+        : item.isRead !== false,
     status: item.type === 'outgoing' ? 'sent' : undefined,
   }
 }

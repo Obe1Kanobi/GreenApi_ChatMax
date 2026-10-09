@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Box, IconButton, InputBase, Stack, Tooltip } from '@mui/material'
+import { Box, CircularProgress, IconButton, InputBase, Stack, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ForumIcon from '@mui/icons-material/Forum'
 import LogoutIcon from '@mui/icons-material/Logout'
@@ -14,6 +14,14 @@ type SidebarProps = {
   selectedId: string | null
   /** Чаты с успешно загруженной историей (HTTP 200) — без блюра */
   loadedIds?: ReadonlySet<string>
+  /**
+   * Нормализованные chatId из объединения LastOutgoing/LastIncomingMessages,
+   * совпавшие с контактами: такие чаты снимаются с блюра сразу, с превью
+   * последнего сообщения, не дожидаясь загрузки истории.
+   */
+  matchedChatIds?: ReadonlySet<string>
+  /** true — идёт сопоставление журналов / ожидание первых 5 GetChatHistory: спиннер */
+  isLoading?: boolean
   onSelect: (id: string) => void
   onNewChat: () => void
   onLogout: () => void
@@ -129,6 +137,8 @@ export default function Sidebar({
   recentChats = [],
   selectedId,
   loadedIds,
+  matchedChatIds,
+  isLoading = false,
   onSelect,
   onNewChat,
   onLogout,
@@ -258,15 +268,30 @@ export default function Sidebar({
             '&::-webkit-scrollbar': { display: 'none' },
           }}
         >
-          {[...recentChats, ...otherChats].map((chat) => (
-            <ChatListItem
-              key={chat.id}
-              chat={chat}
-              selected={chat.id === selectedId}
-              blurred={Boolean(chat.chatId) && !(loadedIds?.has(chat.id) ?? false)}
-              onClick={() => onSelect(chat.id)}
-            />
-          ))}
+          {isLoading && (
+            <Stack sx={{ py: 2.5, alignItems: 'center' }}>
+              <CircularProgress size={24} sx={{ color: '#0c7ff4' }} />
+            </Stack>
+          )}
+          {[...recentChats, ...otherChats].map((chat) => {
+            // Блюр снимают ДВА события: совпадение chatId с журналами Last*
+            // (превью последнего сообщения уже видно) или загрузка истории (200)
+            const normalized = chat.chatId?.trim().toLowerCase() ?? ''
+            const matched = normalized !== '' && (matchedChatIds?.has(normalized) ?? false)
+            return (
+              <ChatListItem
+                key={chat.id}
+                chat={chat}
+                selected={chat.id === selectedId}
+                blurred={
+                  Boolean(chat.chatId) &&
+                  !(loadedIds?.has(chat.id) ?? false) &&
+                  !matched
+                }
+                onClick={() => onSelect(chat.id)}
+              />
+            )
+          })}
         </Box>
       </Box>
     </Stack>

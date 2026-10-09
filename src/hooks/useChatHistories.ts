@@ -85,6 +85,13 @@ type UseChatHistoriesOptions = {
    * приоритет 1: самые свежие грузятся первыми.
    */
   recentChatIds?: string[]
+  /**
+   * Створка порядка загрузки: GetChatHistory стартует ТОЛЬКО после завершения
+   * журнальных запросов LastIncoming/LastOutgoing (useRecentChats.isSettled).
+   * Пока ready === false, все три приоритета ждут; при открытии створки
+   * эффекты перезапускаются и очередь наполняется в прежнем порядке.
+   */
+  ready?: boolean
 }
 
 /**
@@ -110,6 +117,7 @@ export function useChatHistories({
   messagesByChat,
   onMerged,
   recentChatIds = [],
+  ready = true,
 }: UseChatHistoriesOptions) {
   const queryClient = useQueryClient()
   const [loadingIds, setLoadingIds] = useState<ReadonlySet<string>>(new Set())
@@ -276,35 +284,37 @@ export function useChatHistories({
   )
 
   // ПРИОРИТЕТ 0 — открытый чат: история запрашивается немедленно (в начало
-  // очереди), даже если chatId уже ждал фоновой загрузки
+  // очереди), даже если chatId уже ждал фоновой загрузки. До открытия створки
+  // (ready) не стартует: журналы Last* идут раньше GetChatHistory.
   useEffect(() => {
-    if (!creds || !selectedId) return
+    if (!creds || !ready || !selectedId) return
     const chat = chats.find((c) => c.id === selectedId)
     if (!chat?.chatId) return
     schedule(chat.chatId, HISTORY_PRIORITY.selected)
-  }, [creds, selectedId, chats, schedule])
+  }, [creds, ready, selectedId, chats, schedule])
 
   // ПРИОРИТЕТ 1 — свежие чаты из журналов за 24 ч, в порядке свежести.
   // Ключ recentKey гасит перезапуски: recentChats пересобирается на каждый
   // рендер, но schedule идемпотентен, а постановка нужна один раз.
   const recentKey = recentChatIds.join('|')
   useEffect(() => {
-    if (!creds || !recentKey) return
+    if (!creds || !ready || !recentKey) return
     for (const chatId of recentChatIds) {
       schedule(chatId, HISTORY_PRIORITY.recent)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creds, recentKey, schedule])
+  }, [creds, ready, recentKey, schedule])
 
   // ПРИОРИТЕТ 2 — остальные чаты (discovery/созданные/входящие): фоновая
-  // догрузка после приоритетов 0–1; вставка в хвост приоритета 2
+  // догрузка после приоритетов 0–1; вставка в хвост приоритета 2.
+  // Тоже за створкой ready: фоновая история не обгоняет журналы Last*.
   useEffect(() => {
-    if (!creds) return
+    if (!creds || !ready) return
     for (const chat of chats) {
       if (!chat.chatId) continue
       schedule(chat.chatId, HISTORY_PRIORITY.background)
     }
-  }, [creds, chats, schedule])
+  }, [creds, ready, chats, schedule])
 
   // Логаут: останавливаем повторы, сбрасываем очередь, кэш и отметки — при
   // повторном входе история загрузится заново

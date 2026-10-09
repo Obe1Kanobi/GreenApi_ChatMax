@@ -19,6 +19,7 @@ import {
   useReadChatMutation,
   useSendMessageMutation,
 } from './api/queries'
+import { NotRegisteredError } from './api/greenApi'
 import { useChatHistories } from './hooks/useChatHistories'
 import { useContactDiscovery } from './hooks/useContactDiscovery'
 import { useNotificationPolling } from './hooks/useNotificationPolling'
@@ -101,10 +102,6 @@ export default function App() {
   useEffect(() => {
     selectedIdRef.current = selectedId
   })
-  const messagesRef = useRef(messagesByChat)
-  useEffect(() => {
-    messagesRef.current = messagesByChat
-  })
   const chatsRef = useRef(chats)
   useEffect(() => {
     chatsRef.current = chats
@@ -133,22 +130,30 @@ export default function App() {
   )
 
   /**
-   * Слияние результата опроса истории чата с локальным состоянием.
+   * Слияние результата опроса истории чата (GetChatHistory) с локальным состоянием.
    * Обновляет превью, время последнего сообщения (для сортировки списка)
-   * и счётчик непрочитанных: новые входящие суммируются, если чат открыт.
-   * Если новые входящие пришли в ОТКРЫТЫЙ чат — отмечаем их прочитанными в инстансе.
+   * и счётчик непрочитанных.
+   *
+   * Непрочитанные считаются ТОЛЬКО по флагу isRead из GetChatHistory:
+   * элемент с isRead === false — непрочитан, true/undefined — прочитан.
+   * Счётчик АБСОЛЮТНЫЙ (сколько непрочитанных в чате сейчас), а не накопительный:
+   * он не суммируется с журнальным unreadByChat (useRecentChats) и уведомлениями,
+   * иначе прочитанные сообщения истории показывали бы цифру повторно.
+   * Если непрочитанные есть в ОТКРЫТОМ чате — счётчик 0 и readChat в инстансе.
    */
   const handleMerged = useCallback(
     (chatSummaryId: string, merged: ChatMessage[]) => {
-      const prevMessages = messagesRef.current[chatSummaryId] ?? []
       setMessagesByChat((prev) => ({ ...prev, [chatSummaryId]: merged }))
 
       const last = merged[merged.length - 1]
-      const prevIds = new Set(prevMessages.map((m) => m.id))
-      const newIncoming = merged.filter((m) => m.direction === 'in' && !prevIds.has(m.id)).length
       const selected = selectedIdRef.current
 
-      if (chatSummaryId === selected && newIncoming > 0) {
+      // Непрочитанные: только входящие с isRead === false (read !== true в UI-модели)
+      const unreadCount = merged.filter(
+        (m) => m.direction === 'in' && m.read !== true,
+      ).length
+
+      if (chatSummaryId === selected && unreadCount > 0) {
         markChatRead(chatSummaryId)
       }
 
@@ -160,7 +165,7 @@ export default function App() {
                 preview: last?.text ?? c.preview,
                 time: last?.ts ? formatStamp(last.ts) : c.time,
                 lastTs: last?.ts ?? c.lastTs,
-                unread: chatSummaryId === selected ? 0 : (c.unread ?? 0) + newIncoming,
+                unread: chatSummaryId === selected ? 0 : unreadCount,
               }
             : c,
         ),
@@ -201,10 +206,15 @@ export default function App() {
 
   /**
    * Этап 3: свежие чаты из журналов LastIncoming/LastOutgoing за 24 ч.
-   * Запросы стартуют сразу после первого getContacts; пока журналы грузятся
-   * (~2 с при 1 rps) список показывается как есть и тихо обновляется.
+   * Строго ПОСЛЕ getContacts (в useRecentChats застворено contactsReady),
+   * и ДО GetChatHistory (в useChatHistories застворено journalsSettled):
+   * порядок запросов — getContacts → Last*Messages → GetChatHistory.
    */
-  const { recentChats } = useRecentChats({
+  const {
+    recentChats,
+    unreadByChat,
+    isSettled: journalsSettled,
+  } = useRecentChats({
     creds,
     contacts: discovery.contacts,
     enabled: Boolean(creds),
@@ -213,6 +223,18 @@ export default function App() {
   /** Нормализованные chatId свежих чатов в порядке свежести — приоритет 1
    * очереди дозагрузки истории (useChatHistories) */
   const recentChatIds = useMemo(() => recentChats.map((r) => r.chatId), [recentChats])
+
+  /**
+   * Сопоставление журналов с контактами: объединение chatId из
+   * LastOutgoingMessages + LastIncomingMessages (recentChats — результат
+   * сопоставления записей журналов с контактами по нормализованному chatId).
+   * Контакт, чей chatId попал в множество, снимается с блюра сразу —
+   * не дожидаясь загрузки его истории GetChatHistory.
+   */
+  const matchedChatIds = useMemo(
+    () => new Set<string>(recentChatIds),
+    [recentChatIds],
+  )
 
   /**
    * Свежие чаты → ChatSummary для сайдбара. Если чат уже есть в списке
@@ -244,14 +266,16 @@ export default function App() {
         lastTs: recent.lastMessage.timestamp,
         // Исходящее — галочки ✓✓ (существующий индикатор направления)
         read: recent.lastMessage.type === 'outgoing',
-        unread: existing?.unread,
+        // Непрочитанные: сначала локальное состояние (открытие чата сбрасывает
+        // счётчик), при его отсутствии — подсчёт по isRead === false из журналов
+        unread: existing?.unread ?? unreadByChat[recent.chatId],
       }
       // Журнал не свежее уже загруженных данных чата — показываем данные чата
       return existing && (existing.lastTs ?? 0) >= recent.lastMessage.timestamp
         ? existing
         : summary
     })
-  }, [recentChats, chats])
+  }, [recentChats, chats, unreadByChat])
 
   // Свежее значение для handleSelectChat: открытие чата, которого ещё нет в списке
   const recentSummariesRef = useRef(recentChatSummaries)
@@ -261,9 +285,15 @@ export default function App() {
 
   /**
    * Входящие уведомления (FIFO receiveNotification) — мгновенный канал.
-   * Сообщение появляется в UI сразу (превью, unread, чат создаётся при
-   * отсутствии), не дожидаясь опроса истории. Дедуп по idMessage: то же
-   * сообщение позже придёт и через GetChatHistory.
+   * Сообщение появляется в UI сразу (превью, чат создаётся при отсутствии),
+   * не дожидаясь опроса истории. Дедуп по idMessage: то же сообщение позже
+   * придёт и через GetChatHistory.
+   *
+   * Счётчик непрочитанных здесь НЕ увеличиваем: уведомление не несёт isRead,
+   * а в FIFO-очереди на старте сессии лежат старые сообщения, которые уже
+   * есть в GetChatHistory. Непрочитанные считаются только по isRead из
+   * GetChatHistory (handleMerged) и журналов Last* (unreadByChat
+   * в useRecentChats) — уведомления цифру не задают.
    */
   const handleNotification = useCallback(
     (event: ParsedNotification) => {
@@ -282,6 +312,7 @@ export default function App() {
         text: event.message.text,
         time: formatStamp(event.message.timestamp),
         ts: event.message.timestamp,
+        read: false,
       }
 
       setMessagesByChat((prev) => {
@@ -291,7 +322,6 @@ export default function App() {
       })
 
       setChats((prev) => {
-        const isUnread = selectedIdRef.current !== summaryId
         if (prev.some((c) => c.id === summaryId)) {
           return prev.map((c) =>
             c.id === summaryId
@@ -300,12 +330,13 @@ export default function App() {
                   preview: message.text,
                   time: formatStamp(event.message.timestamp),
                   lastTs: event.message.timestamp,
-                  unread: isUnread ? (c.unread ?? 0) + 1 : c.unread,
+                  // unread не трогаем — считается только по isRead из API
                 }
               : c,
           )
         }
-        // Чата ещё нет — создаём (discovery чатов через входящие)
+        // Чата ещё нет — создаём (discovery чатов через входящие);
+        // счётчик непрочитанных придёт из GetChatHistory (isRead === false)
         const digits = chatId.replace(/@.*/, '')
         const name = event.chatName ?? event.phone ?? formatPhone(digits)
         const newChat: ChatSummary = {
@@ -316,7 +347,6 @@ export default function App() {
           preview: message.text,
           time: formatStamp(event.message.timestamp),
           lastTs: event.message.timestamp,
-          unread: isUnread ? 1 : 0,
         }
         return [newChat, ...prev]
       })
@@ -343,7 +373,23 @@ export default function App() {
     messagesByChat,
     onMerged: handleMerged,
     recentChatIds,
+    // Створка порядка: история чатов — строго после Last*Messages
+    ready: journalsSettled,
   })
+
+  /**
+   * Лоадер списка чатов:
+   *  1) идёт сопоставление журналов (контакты получены, Last*-запросы в полёте);
+   *  2) журналы за 24 ч пусты (или оба упали) — спиннер держится, пока не
+   *     завершатся первые 5 запросов GetChatHistory (или все, если чатов < 5);
+   *     если чатов с chatId нет вовсе — ждать нечего, спиннер снимается.
+   */
+  const chatsWithChatIdCount = chats.filter((c) => c.chatId).length
+  const historyTarget = Math.min(5, chatsWithChatIdCount)
+  const isListLoading =
+    (discovery.contacts !== undefined && !journalsSettled) ||
+    (journalsSettled && recentChats.length === 0 &&
+      historyTarget > 0 && histories.loadedIds.size < historyTarget)
 
   /** Выбор чата: сохранённые сообщения показываются сразу,
    * история загружена однократно при старте (useChatHistories) */
@@ -456,8 +502,10 @@ export default function App() {
       creds,
       phone: Number(phone),
     })
+    // exist: false — номер не зарегистрирован в MAX: UI показывает
+    // сообщение «нужно зарегистрироваться» с кнопкой ОК (NewChatForm)
     if (!exist) {
-      throw new Error('Аккаунт MAX с таким номером не найден')
+      throw new NotRegisteredError()
     }
 
     const id = `local-${phone}`
@@ -494,6 +542,8 @@ export default function App() {
           recentChats={recentChatSummaries}
           selectedId={selectedId}
           loadedIds={histories.loadedIds}
+          matchedChatIds={matchedChatIds}
+          isLoading={isListLoading}
           onSelect={handleSelectChat}
           onNewChat={() => setNewChatOpen(true)}
           onLogout={handleLogout}
