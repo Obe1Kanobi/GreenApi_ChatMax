@@ -21,15 +21,16 @@ export function mapHistoryItem(item: ChatHistoryItem): ChatMessage | null {
     read:
       item.type === 'outgoing'
         ? item.statusMessage === 'read' || item.isRead === true
-        // Входящие: непрочитанным считается только сообщение с isRead === false.
-        // isRead undefined (старые записи API) — считаем прочитанным, чтобы
-        // не показывать цифру у ранее прочитанных сообщений.
         : item.isRead !== false,
-    status: item.type === 'outgoing' ? 'sent' : undefined,
+    status:
+      item.type === 'outgoing'
+        ? item.statusMessage === 'read' || item.isRead === true
+          ? 'read'
+          : 'sent'
+        : undefined,
   }
 }
 
-/** UNIX-время (сек) → 'HH:MM' */
 function formatStamp(ts: number): string {
   return new Date(ts * 1000).toLocaleTimeString('ru-RU', {
     hour: '2-digit',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Stack } from '@mui/material'
+import { Box, Stack } from '@mui/material'
 import LoginPage from './features/auth/LoginPage'
 import ChatWindow from './features/chat/ChatWindow'
 import Sidebar from './features/chats/Sidebar'
@@ -33,7 +33,7 @@ function nowTime(): string {
   return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-/** UNIX-время (сек) → 'HH:MM' — для превью чатов из истории */
+/** UNIX-время (сек) → 'HH:MM' - для превью чатов из истории */
 function formatStamp(ts: number): string {
   return new Date(ts * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
@@ -53,25 +53,19 @@ function formatPhone(digits: string): string {
   return digits
 }
 
-/** id оптимистичного сообщения: `local-${Date.now()}` (Date.now impure —
+/** id оптимистичного сообщения: `local-${Date.now()}` (Date.now impure -
  * вызывается на уровне модуля, не в теле компонента) */
 function makeLocalId(): string {
   return `local-${Date.now()}`
 }
 
-/** Текущее UNIX-время в секундах (Date.now impure — вызывается на уровне модуля) */
+/** Текущее UNIX-время в секундах (Date.now impure - вызывается на уровне модуля) */
 function nowUnix(): number {
   return Math.floor(Date.now() / 1000)
 }
 
 export default function App() {
   const [creds, setCreds] = useState<Credentials | null>(() => loadCredentials())
-  // Чаты переживают перезагрузку: состояние чатов хранится в localStorage,
-  // история сообщений подтягивается опросом GetChatHistory.
-  // Моковые данные убраны: стартуем с пустого списка, чаты появляются
-  // через создание по номеру (CheckAccount); discovery новых чатов —
-  // по входящим сообщениям в истории.
-  // Демо-чаты из старых сессий (без chatId) отфильтровываем.
   const [chats, setChats] = useState<ChatSummary[]>(() =>
     (loadChatState()?.chats ?? []).filter((c) => Boolean(c.chatId)),
   )
@@ -85,8 +79,8 @@ export default function App() {
     () => loadChatState()?.messagesByChat ?? {},
   )
   const [newChatOpen, setNewChatOpen] = useState(false)
+  const [mobileChatOpen, setMobileChatOpen] = useState(false)
 
-  // Сохраняем чаты при каждом изменении состояния
   useEffect(() => {
     saveChatState({ chats, messagesByChat, selectedId })
   }, [chats, messagesByChat, selectedId])
@@ -97,7 +91,6 @@ export default function App() {
     setCreds(null)
   }
 
-  // Свежие значения для подсчёта непрочитанных без пересоздания колбэков
   const selectedIdRef = useRef(selectedId)
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -107,7 +100,6 @@ export default function App() {
     chatsRef.current = chats
   })
 
-  // TanStack Query мутации: все сетевые вызовы приложения идут через них
   const readChatMutation = useReadChatMutation()
   const sendMessageMutation = useSendMessageMutation()
   const getMessageMutation = useGetMessageMutation()
@@ -135,11 +127,11 @@ export default function App() {
    * и счётчик непрочитанных.
    *
    * Непрочитанные считаются ТОЛЬКО по флагу isRead из GetChatHistory:
-   * элемент с isRead === false — непрочитан, true/undefined — прочитан.
+   * элемент с isRead === false - непрочитан, true/undefined - прочитан.
    * Счётчик АБСОЛЮТНЫЙ (сколько непрочитанных в чате сейчас), а не накопительный:
    * он не суммируется с журнальным unreadByChat (useRecentChats) и уведомлениями,
    * иначе прочитанные сообщения истории показывали бы цифру повторно.
-   * Если непрочитанные есть в ОТКРЫТОМ чате — счётчик 0 и readChat в инстансе.
+   * Если непрочитанные есть в ОТКРЫТОМ чате - счётчик 0 и readChat в инстансе.
    */
   const handleMerged = useCallback(
     (chatSummaryId: string, merged: ChatMessage[]) => {
@@ -148,7 +140,6 @@ export default function App() {
       const last = merged[merged.length - 1]
       const selected = selectedIdRef.current
 
-      // Непрочитанные: только входящие с isRead === false (read !== true в UI-модели)
       const unreadCount = merged.filter(
         (m) => m.direction === 'in' && m.read !== true,
       ).length
@@ -208,7 +199,7 @@ export default function App() {
    * Этап 3: свежие чаты из журналов LastIncoming/LastOutgoing за 24 ч.
    * Строго ПОСЛЕ getContacts (в useRecentChats застворено contactsReady),
    * и ДО GetChatHistory (в useChatHistories застворено journalsSettled):
-   * порядок запросов — getContacts → Last*Messages → GetChatHistory.
+   * порядок запросов - getContacts → Last*Messages → GetChatHistory.
    */
   const {
     recentChats,
@@ -220,29 +211,13 @@ export default function App() {
     enabled: Boolean(creds),
   })
 
-  /** Нормализованные chatId свежих чатов в порядке свежести — приоритет 1
-   * очереди дозагрузки истории (useChatHistories) */
   const recentChatIds = useMemo(() => recentChats.map((r) => r.chatId), [recentChats])
 
-  /**
-   * Сопоставление журналов с контактами: объединение chatId из
-   * LastOutgoingMessages + LastIncomingMessages (recentChats — результат
-   * сопоставления записей журналов с контактами по нормализованному chatId).
-   * Контакт, чей chatId попал в множество, снимается с блюра сразу —
-   * не дожидаясь загрузки его истории GetChatHistory.
-   */
   const matchedChatIds = useMemo(
     () => new Set<string>(recentChatIds),
     [recentChatIds],
   )
 
-  /**
-   * Свежие чаты → ChatSummary для сайдбара. Если чат уже есть в списке
-   * (discovery/локальное состояние) — переиспользуем его id (выборка,
-   * unread, история работают как раньше), при более свежей записи журнала
-   * обновляем превью/время. Чаты только из журналов получают id
-   * `recent-${chatId}` и попадают в основной список при первом открытии.
-   */
   const recentChatSummaries = useMemo<ChatSummary[]>(() => {
     return recentChats.map((recent) => {
       const existing = chats.find(
@@ -264,27 +239,22 @@ export default function App() {
         preview: recent.lastMessage.text,
         time,
         lastTs: recent.lastMessage.timestamp,
-        // Исходящее — галочки ✓✓ (существующий индикатор направления)
         read: recent.lastMessage.type === 'outgoing',
-        // Непрочитанные: сначала локальное состояние (открытие чата сбрасывает
-        // счётчик), при его отсутствии — подсчёт по isRead === false из журналов
         unread: existing?.unread ?? unreadByChat[recent.chatId],
       }
-      // Журнал не свежее уже загруженных данных чата — показываем данные чата
       return existing && (existing.lastTs ?? 0) >= recent.lastMessage.timestamp
         ? existing
         : summary
     })
   }, [recentChats, chats, unreadByChat])
 
-  // Свежее значение для handleSelectChat: открытие чата, которого ещё нет в списке
   const recentSummariesRef = useRef(recentChatSummaries)
   useEffect(() => {
     recentSummariesRef.current = recentChatSummaries
   })
 
   /**
-   * Входящие уведомления (FIFO receiveNotification) — мгновенный канал.
+   * Входящие уведомления (FIFO receiveNotification) - мгновенный канал.
    * Сообщение появляется в UI сразу (превью, чат создаётся при отсутствии),
    * не дожидаясь опроса истории. Дедуп по idMessage: то же сообщение позже
    * придёт и через GetChatHistory.
@@ -293,15 +263,38 @@ export default function App() {
    * а в FIFO-очереди на старте сессии лежат старые сообщения, которые уже
    * есть в GetChatHistory. Непрочитанные считаются только по isRead из
    * GetChatHistory (handleMerged) и журналов Last* (unreadByChat
-   * в useRecentChats) — уведомления цифру не задают.
+   * в useRecentChats) - уведомления цифру не задают.
    */
   const handleNotification = useCallback(
     (event: ParsedNotification) => {
+      if (event.kind === 'outgoing-status' || event.kind === 'outgoing-echo') {
+        const summaryId = chatsRef.current.find(
+          (c) => c.chatId && c.chatId.trim().toLowerCase() === event.chatId.trim().toLowerCase(),
+        )?.id
+        if (!summaryId) return
+        setMessagesByChat((prev) => {
+          const list = prev[summaryId]
+          if (!list) return prev
+          return {
+            ...prev,
+            [summaryId]: list.map((m) => {
+              if (m.id !== event.idMessage) return m
+              if (event.kind === 'outgoing-echo') {
+                return m.status === 'sending' ? { ...m, status: 'sent' } : m
+              }
+              if (event.status === 'read') {
+                return { ...m, status: 'read', read: true }
+              }
+              return m.status === 'sending' ? { ...m, status: 'sent' } : m
+            }),
+          }
+        })
+        return
+      }
+
       if (event.kind !== 'incoming-message') return
 
       const chatId = event.chatId
-      // Сопоставление нормализованное (как в useRecentChats/useChatHistories):
-      // journal/API chatId могут отличаться регистром — чат всё равно найдётся
       const summaryId =
         chatsRef.current.find(
           (c) => c.chatId && c.chatId.trim().toLowerCase() === chatId.trim().toLowerCase(),
@@ -330,13 +323,10 @@ export default function App() {
                   preview: message.text,
                   time: formatStamp(event.message.timestamp),
                   lastTs: event.message.timestamp,
-                  // unread не трогаем — считается только по isRead из API
                 }
               : c,
           )
         }
-        // Чата ещё нет — создаём (discovery чатов через входящие);
-        // счётчик непрочитанных придёт из GetChatHistory (isRead === false)
         const digits = chatId.replace(/@.*/, '')
         const name = event.chatName ?? event.phone ?? formatPhone(digits)
         const newChat: ChatSummary = {
@@ -351,21 +341,13 @@ export default function App() {
         return [newChat, ...prev]
       })
 
-      // Открытый чат — сразу отмечаем прочитанным в инстансе
       if (selectedIdRef.current === summaryId) markChatRead(summaryId)
     },
     [markChatRead],
   )
 
-  // Цикл FIFO receiveNotification/deleteNotification (README, раздел 6)
   useNotificationPolling({ creds, onNotification: handleNotification, enabled: Boolean(creds) })
 
-  /**
-   * Приоритетная дозагрузка истории (см. useChatHistories):
-   * 0 — открытый чат (немедленно), 1 — свежие чаты из журналов (в порядке
-   * свежести), 2 — остальные фоном. Ровно один вызов GetChatHistory за
-   * сессию на chatId; у чатов без chatId история не загружается.
-   */
   const histories = useChatHistories({
     creds,
     chats,
@@ -373,17 +355,9 @@ export default function App() {
     messagesByChat,
     onMerged: handleMerged,
     recentChatIds,
-    // Створка порядка: история чатов — строго после Last*Messages
     ready: journalsSettled,
   })
 
-  /**
-   * Лоадер списка чатов:
-   *  1) идёт сопоставление журналов (контакты получены, Last*-запросы в полёте);
-   *  2) журналы за 24 ч пусты (или оба упали) — спиннер держится, пока не
-   *     завершатся первые 5 запросов GetChatHistory (или все, если чатов < 5);
-   *     если чатов с chatId нет вовсе — ждать нечего, спиннер снимается.
-   */
   const chatsWithChatIdCount = chats.filter((c) => c.chatId).length
   const historyTarget = Math.min(5, chatsWithChatIdCount)
   const isListLoading =
@@ -394,8 +368,6 @@ export default function App() {
   /** Выбор чата: сохранённые сообщения показываются сразу,
    * история загружена однократно при старте (useChatHistories) */
   function handleSelectChat(id: string) {
-    // Чат из «свежих» может ещё не иметь записи в списке (история не загружена) —
-    // создаём её при первом открытии, дальше он живёт как обычный чат
     if (!chatsRef.current.some((c) => c.id === id)) {
       const recent = recentSummariesRef.current.find((c) => c.id === id)
       if (recent) {
@@ -404,9 +376,8 @@ export default function App() {
     }
     const hasUnread = (chats.find((c) => c.id === id)?.unread ?? 0) > 0
     setSelectedId(id)
-    // Сбрасываем счётчик непрочитанных у открытого чата
+    setMobileChatOpen(true)
     setChats((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)))
-    // Отмечаем чат прочитанным в инстансе (POST readChat) — только если было что читать
     if (hasUnread) markChatRead(id)
   }
 
@@ -422,7 +393,6 @@ export default function App() {
     const localId = makeLocalId()
     const chatId = chats.find((c) => c.id === selected)?.chatId
 
-    // Оптимистично показываем сообщение в ленте
     const ts = nowUnix()
     setMessagesByChat((prev) => {
       const list = prev[selected] ?? []
@@ -445,7 +415,6 @@ export default function App() {
       ),
     )
 
-    // Демо-чат без chatId — дальше только локально
     if (!creds || !chatId) return
 
     try {
@@ -456,7 +425,6 @@ export default function App() {
           m.id === localId ? { ...m, id: res.idMessage, status: 'sent' } : m,
         ),
       }))
-      // GetMessage: уточняем доставку/прочтение отправленного сообщения
       void confirmDelivery(selected, chatId, res.idMessage)
     } catch {
       setMessagesByChat((prev) => ({
@@ -470,7 +438,7 @@ export default function App() {
 
   /**
    * POST getMessage: через паузу уточняем статус отправленного сообщения
-   * (sent / delivered / read). Ошибки игнорируем — статус всё равно
+   * (sent / delivered / read). Ошибки игнорируем - статус всё равно
    * обновится при следующем опросе истории.
    */
   function confirmDelivery(chatSummaryId: string, chatId: string, idMessage: string) {
@@ -482,12 +450,12 @@ export default function App() {
           setMessagesByChat((prev) => ({
             ...prev,
             [chatSummaryId]: (prev[chatSummaryId] ?? []).map((m) =>
-              m.id === idMessage ? { ...m, read: true } : m,
+              m.id === idMessage ? { ...m, read: true, status: 'read' } : m,
             ),
           }))
         }
       } catch {
-        // сообщение ещё в очереди или недоступно — не критично
+        // сообщение ещё в очереди или недоступно - не критично
       }
     }, 3000)
   }
@@ -502,8 +470,6 @@ export default function App() {
       creds,
       phone: Number(phone),
     })
-    // exist: false — номер не зарегистрирован в MAX: UI показывает
-    // сообщение «нужно зарегистрироваться» с кнопкой ОК (NewChatForm)
     if (!exist) {
       throw new NotRegisteredError()
     }
@@ -523,8 +489,8 @@ export default function App() {
     })
     setMessagesByChat((prev) => ({ ...prev, [id]: [] }))
     setSelectedId(id)
+    setMobileChatOpen(true)
     setNewChatOpen(false)
-    // История созданного чата будет догружена однократно (useChatHistories)
   }
 
   if (!creds) {
@@ -536,31 +502,44 @@ export default function App() {
 
   return (
     <>
-      <Stack direction="row" sx={{ height: '100vh', bgcolor: '#fff', overflow: 'hidden' }}>
-        <Sidebar
-          chats={chats}
-          recentChats={recentChatSummaries}
-          selectedId={selectedId}
-          loadedIds={histories.loadedIds}
-          matchedChatIds={matchedChatIds}
-          isLoading={isListLoading}
-          onSelect={handleSelectChat}
-          onNewChat={() => setNewChatOpen(true)}
-          onLogout={handleLogout}
-        />
-        <ChatWindow
-          chat={selectedChat}
-          messages={selectedMessages}
-          loadingHistory={histories.isFetchingSelected}
-          historyLoaded={
-            // Чаты без chatId (локальные) считаются загруженными — блюр не нужен
-            !selectedChat?.chatId || (selectedChat ? histories.loadedIds.has(selectedChat.id) : true)
-          }
-          onSend={(text) => {
-            void handleSend(text)
-          }}
-        />
-      </Stack>
+      <Stack
+        direction="row"
+        className={mobileChatOpen ? 'mobile-chat-view' : 'mobile-list-view'}
+        sx={{ height: '100vh', bgcolor: '#fff', overflow: 'hidden' }}
+      >
+          <Box className="pane-sidebar" sx={{ flex: 'none', display: 'flex', height: '100%' }}>
+            <Sidebar
+              chats={chats}
+              recentChats={recentChatSummaries}
+              selectedId={selectedId}
+              loadedIds={histories.loadedIds}
+              matchedChatIds={matchedChatIds}
+              isLoading={isListLoading}
+              onSelect={handleSelectChat}
+              onNewChat={() => setNewChatOpen(true)}
+              onLogout={handleLogout}
+            />
+          </Box>
+          <Box className="pane-chat" sx={{ flex: 1, minWidth: 0, display: 'flex', height: '100%' }}>
+            <ChatWindow
+              chat={selectedChat}
+              messages={selectedMessages}
+              loadingHistory={histories.isFetchingSelected}
+              historyLoaded={
+                !selectedChat?.chatId || (selectedChat ? histories.loadedIds.has(selectedChat.id) : true)
+              }
+              onSend={(text) => {
+                void handleSend(text)
+              }}
+              onBack={() => {
+                setMobileChatOpen(false)
+                if (!window.matchMedia('(max-width: 760px)').matches) {
+                  setSelectedId(null)
+                }
+              }}
+            />
+          </Box>
+        </Stack>
       <NewChatForm
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}

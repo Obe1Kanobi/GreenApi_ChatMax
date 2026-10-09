@@ -4,7 +4,7 @@ import type { ChatSummary } from './types'
 type ChatListItemProps = {
   chat: ChatSummary
   selected: boolean
-  /** true — история чата ещё не загружена (нет HTTP 200): содержимое размыто */
+  /** true - история чата ещё не загружена (нет HTTP 200): содержимое размыто */
   blurred?: boolean
   onClick: () => void
 }
@@ -34,7 +34,6 @@ export default function ChatListItem({
         '&:hover': { bgcolor: selected ? '#e7f3ff' : '#f4f5f6' },
       }}
     >
-      {/* Содержимое строки под блюром, пока история чата не загружена (200) */}
       <Stack
         direction="row"
         sx={{

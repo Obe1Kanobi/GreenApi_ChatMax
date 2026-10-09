@@ -68,7 +68,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       const data = (await res.json()) as { reason?: string }
       reason = data?.reason
     } catch {
-      // тело не JSON — оставляем reason пустым
+      // тело не JSON - оставляем reason пустым
     }
 
     if (reason && /not authorized|notAuthorized/i.test(reason)) {
@@ -76,7 +76,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     }
 
     const message =
-      ERROR_MESSAGES[status] ??
+      ERROR_MESSAGES[status] ?? 
       (status >= 500
         ? 'Сервер временно недоступен, попробуйте позже'
         : `Ошибка запроса (${status})`)
@@ -90,7 +90,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 /**
  * Аккаунт по номеру не зарегистрирован: CheckAccount вернул exist: false.
- * Отдельный класс — UI показывает нестандартный экран «нужно
+ * Отдельный класс - UI показывает нестандартный экран «нужно
  * зарегистрироваться» с кнопкой ОК, а не просто текст ошибки в поле.
  */
 export class NotRegisteredError extends Error {
@@ -117,7 +117,7 @@ export function checkAccount(creds: Credentials, phone: number): Promise<CheckAc
   })
 }
 
-/** Отправка текстового сообщения. Лимит 4000 символов — проверяем на фронте. */
+/** Отправка текстового сообщения. Лимит 4000 символов - проверяем на фронте. */
 export async function sendMessage(
   creds: Credentials,
   chatId: string,
@@ -134,7 +134,7 @@ export async function sendMessage(
 }
 
 /**
- * POST readChat — отметить сообщения чата прочитанными в инстансе.
+ * POST readChat - отметить сообщения чата прочитанными в инстансе.
  * Без idMessage отмечаются ВСЕ сообщения чата.
  * Требуется настройка инстанса «Получать уведомления о входящих
  * сообщениях и файлах» (docs: green-api.com/v3/docs/api/marks/ReadChat).
@@ -153,7 +153,7 @@ export function readChat(
 
 /**
  * Одно уведомление из FIFO-очереди (long-poll).
- * receiveTimeout 5–60 с; пустой ответ — норма, а не ошибка (вернём null).
+ * receiveTimeout 5–60 с; пустой ответ - норма, а не ошибка (вернём null).
  * Обязателен к разбору: без receiveNotification/deleteNotification
  * журналы чатов в инстансе обновляются с задержкой.
  */
@@ -167,7 +167,7 @@ export async function receiveNotification(
   return data ?? null
 }
 
-/** Подтверждение обработки уведомления — вызывать для каждого, иначе FIFO встанет. */
+/** Подтверждение обработки уведомления - вызывать для каждого, иначе FIFO встанет. */
 export function deleteNotification(
   creds: Credentials,
   receiptId: number,
@@ -179,16 +179,16 @@ export function deleteNotification(
 }
 
 /**
- * GET getContacts — список контактов (собеседников) аккаунта.
+ * GET getContacts - список контактов (собеседников) аккаунта.
  * Это источник discovery новых чатов: включает и тех, от кого была
- * входящая переписка. Пустой массив — норма, повторить позже (docs).
+ * входящая переписка. Пустой массив - норма, повторить позже (docs).
  */
 export function getContacts(creds: Credentials): Promise<ContactItem[]> {
   return request<ContactItem[]>(endpoint(creds, 'getContacts'), { method: 'GET' })
 }
 
 /**
- * POST getMessage — одно сообщение чата по его id
+ * POST getMessage - одно сообщение чата по его id
  * (docs: green-api.com/v3/docs/api/journals/GetMessage).
  * Тело ответа совпадает с элементом истории (ChatHistoryItem).
  * Используем для подтверждения статуса отправленных сообщений
@@ -206,7 +206,7 @@ export function getMessage(
   })
 }
 
-/** POST getChatHistory — история сообщений чата (сортировка по убыванию даты). */
+/** POST getChatHistory - история сообщений чата (сортировка по убыванию даты). */
 export function getChatHistory(
   creds: Credentials,
   chatId: string,
@@ -222,11 +222,11 @@ export function getChatHistory(
 }
 
 /**
- * GET lastIncomingMessages — журнал крайних входящих сообщений инстанса
+ * GET lastIncomingMessages - журнал крайних входящих сообщений инстанса
  * (по умолчанию за последние 24 часа; docs: green-api.com/v3/docs/api/journals/LastIncomingMessages).
  * Используется сразу после getContacts для сопоставления с контактами:
- * у которых есть входящие — чаты показываются первыми (Этап 2).
- * Лимит 1 запрос в секунду — вызывать только через rateLimiter (api/queries.ts).
+ * у которых есть входящие - чаты показываются первыми (Этап 2).
+ * Лимит 1 запрос в секунду - вызывать только через rateLimiter (api/queries.ts).
  */
 export function lastIncomingMessages(
   creds: Credentials,
@@ -241,9 +241,9 @@ export function lastIncomingMessages(
 }
 
 /**
- * GET lastOutgoingMessages — журнал крайних исходящих сообщений инстанса
+ * GET lastOutgoingMessages - журнал крайних исходящих сообщений инстанса
  * (по умолчанию за последние 24 часа; docs: green-api.com/v3/docs/api/journals/LastOutgoingMessages).
- * Аналогично lastIncomingMessages: лимит 1 запрос в секунду —
+ * Аналогично lastIncomingMessages: лимит 1 запрос в секунду -
  * вызывать только через rateLimiter (api/queries.ts).
  */
 export function lastOutgoingMessages(

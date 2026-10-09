@@ -9,10 +9,10 @@ import type { ChatSummary } from './types'
 
 type SidebarProps = {
   chats: ChatSummary[]
-  /** Свежие чаты из журналов за 24 ч (этап 3) — выводятся вверху списка */
+  /** Свежие чаты из журналов за 24 ч (этап 3) - выводятся вверху списка */
   recentChats?: ChatSummary[]
   selectedId: string | null
-  /** Чаты с успешно загруженной историей (HTTP 200) — без блюра */
+  /** Чаты с успешно загруженной историей (HTTP 200) - без блюра */
   loadedIds?: ReadonlySet<string>
   /**
    * Нормализованные chatId из объединения LastOutgoing/LastIncomingMessages,
@@ -20,7 +20,7 @@ type SidebarProps = {
    * последнего сообщения, не дожидаясь загрузки истории.
    */
   matchedChatIds?: ReadonlySet<string>
-  /** true — идёт сопоставление журналов / ожидание первых 5 GetChatHistory: спиннер */
+  /** true - идёт сопоставление журналов / ожидание первых 5 GetChatHistory: спиннер */
   isLoading?: boolean
   onSelect: (id: string) => void
   onNewChat: () => void
@@ -145,15 +145,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [activeRail, setActiveRail] = useState('all')
 
-  // Свежие чаты сверху: сортировка по времени последнего сообщения
   const sortedChats = [...chats].sort((a, b) => (b.lastTs ?? 0) - (a.lastTs ?? 0))
 
-  /**
-   * Дедупликация: контакты, попавшие в свежие чаты (совпадение chatId),
-   * уже показаны вверху — из основного списка исключаем. Чаты без chatId
-   * (демо/локальные) всегда остаются в общем списке. Если свежих чатов
-   * нет — список идёт как раньше, без заглушек.
-   */
   const recentChatIds = new Set<string>()
   for (const chat of recentChats) {
     if (chat.chatId) recentChatIds.add(chat.chatId.trim().toLowerCase())
@@ -164,7 +157,6 @@ export default function Sidebar({
 
   return (
     <Stack direction="row" sx={{ height: '100%', flex: 'none' }}>
-      {/* Рейка навигации */}
       <Stack
         sx={{
           width: 70,
@@ -200,7 +192,6 @@ export default function Sidebar({
         </Tooltip>
       </Stack>
 
-      {/* Панель списка чатов */}
       <Box
         sx={{
           width: 364,
@@ -211,10 +202,9 @@ export default function Sidebar({
           bgcolor: '#fff',
           borderRight: '1px solid #e2e5e8',
           '@media (max-width: 1000px)': { width: 320 },
-          '@media (max-width: 760px)': { display: 'none' },
+          '@media (max-width: 760px)': { width: '100%', flex: 1, borderRight: 'none' },
         }}
       >
-        {/* Шапка: заголовок, «я», кнопка нового чата */}
         <Stack
           direction="row"
           sx={{
@@ -274,8 +264,6 @@ export default function Sidebar({
             </Stack>
           )}
           {[...recentChats, ...otherChats].map((chat) => {
-            // Блюр снимают ДВА события: совпадение chatId с журналами Last*
-            // (превью последнего сообщения уже видно) или загрузка истории (200)
             const normalized = chat.chatId?.trim().toLowerCase() ?? ''
             const matched = normalized !== '' && (matchedChatIds?.has(normalized) ?? false)
             return (

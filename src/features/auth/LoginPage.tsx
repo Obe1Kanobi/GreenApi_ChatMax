@@ -25,7 +25,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Логин через TanStack Query (useMutation → getStateInstance)
   const loginMutation = useLoginMutation()
   const loading = loginMutation.isPending
 
@@ -55,7 +54,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    // Фоновая подложка всего экрана
     <Stack
       component="form"
       onSubmit={(e) => void handleSubmit(e)}
@@ -67,7 +65,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         bgcolor: 'background.default',
       }}
     >
-      {/* Поверхность (карточка) с полями входа */}
       <Stack
         spacing={2.5}
         sx={{

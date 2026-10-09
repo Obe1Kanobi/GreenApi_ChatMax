@@ -14,17 +14,17 @@ import type { ContactItem, Credentials, LastMessageRecord } from '../api/types'
  * записи сопоставляются с контактами по chatId, и формируется «сводка»
  * последнего сообщения для списка чатов:
  *   - совпавшие с контактами чаты отдаются первыми (для сортировки сайдбара);
- *   - сортировка по времени последнего сообщения — свежие вверху.
+ *   - сортировка по времени последнего сообщения - свежие вверху.
  *
  * Ошибки не роняют UI: оба запроса идут через Promise.allSettled, поэтому
- * при падении одного используется второй (частичный результат). isError —
- * только когда упали ОБА запроса. Повтор — через refetch (TanStack Query).
+ * при падении одного используется второй (частичный результат). isError -
+ * только когда упали ОБА запроса. Повтор - через refetch (TanStack Query).
  *
- * Оба метода лимитированы 1 rps на инстанс — запросы идут параллельно,
+ * Оба метода лимитированы 1 rps на инстанс - запросы идут параллельно,
  * общую очередь api/rateLimiter.ts разруливает сама.
  */
 
-/** Глубина журналов, минут (по умолчанию API — 24 часа) */
+/** Глубина журналов, минут (по умолчанию API - 24 часа) */
 const RECENT_MINUTES = 1440
 
 /** Последнее сообщение чата в сводке */
@@ -43,9 +43,9 @@ export type RecentChatLastMessage = {
 export type RecentChat = {
   /** chatId чата в формате GREEN-API (79001234567@c.us), нормализованный */
   chatId: string
-  /** Контакт из getContacts; undefined — журнал содержит чат, которого нет в контактах */
+  /** Контакт из getContacts; undefined - журнал содержит чат, которого нет в контактах */
   contact?: ContactItem
-  /** Последнее сообщение чата (из двух журналов — самое свежее) */
+  /** Последнее сообщение чата (из двух журналов - самое свежее) */
   lastMessage: RecentChatLastMessage
 }
 
@@ -60,7 +60,7 @@ type JournalsResult = {
 /**
  * Нормализация chatId к единому виду для сопоставления:
  * трим + нижний регистр (GREEN-API присылает суффиксы '@c.us' в нижнем).
- * phone.ts пуст — нормализация живёт здесь, до появления общих утилит.
+ * phone.ts пуст - нормализация живёт здесь, до появления общих утилит.
  */
 function normalizeChatId(chatId: string | undefined): string | null {
   if (!chatId) return null
@@ -69,8 +69,8 @@ function normalizeChatId(chatId: string | undefined): string | null {
 }
 
 /**
- * chatId записи журнала: основной — chatId (у исходящих это получатель,
- * у входящих — отправитель); при отсутствии — senderId (входящие).
+ * chatId записи журнала: основной - chatId (у исходящих это получатель,
+ * у входящих - отправитель); при отсутствии - senderId (входящие).
  */
 function recordChatId(record: LastMessageRecord): string | null {
   return normalizeChatId(record.chatId) ?? normalizeChatId(record.senderId)
@@ -103,10 +103,10 @@ function toLastMessage(
  *  1) индекс контактов по нормализованному chatId;
  *  2) каждая запись обоих журналов → chatId → последнее сообщение чата
  *     (при конфликте остаётся самое свежее по timestamp);
- *  3) подсчёт непрочитанных: у каждой записи есть флаг isRead — записи
+ *  3) подсчёт непрочитанных: у каждой записи есть флаг isRead - записи
  *     с isRead === false дают chatId +1 в счётчик непрочитанных (isRead
- *     true/undefined — сообщение прочитано, цифру не показываем);
- *  4) сортировка по timestamp по убыванию — свежие вверху.
+ *     true/undefined - сообщение прочитано, цифру не показываем);
+ *  4) сортировка по timestamp по убыванию - свежие вверху.
  */
 function buildRecentChats(
   incoming: LastMessageRecord[] | null,
@@ -124,10 +124,8 @@ function buildRecentChats(
     if (key) contactByChatId.set(key, contact)
   }
 
-  /** chatId → самое свежее сообщение из обоих журналов */
   const latestByChatId = new Map<string, RecentChatLastMessage>()
 
-  /** chatId → счётчик записей с isRead === false (непрочитанные) */
   const unreadByChat: Record<string, number> = {}
 
   const collect = (records: LastMessageRecord[] | null, type: 'incoming' | 'outgoing') => {
@@ -135,7 +133,6 @@ function buildRecentChats(
     for (const record of records) {
       const chatId = recordChatId(record)
       if (!chatId || !record.idMessage) continue
-      // isRead false — сообщение не прочитано: +1 к непрочитанным чата
       if (record.isRead === false) {
         unreadByChat[chatId] = (unreadByChat[chatId] ?? 0) + 1
       }
@@ -164,7 +161,7 @@ function buildRecentChats(
   return { recentChats, lastMessageByChat, unreadByChat }
 }
 
-/** reason у отклонённого промиса — any: приводим к Error без unsafe-присваиваний */
+/** reason у отклонённого промиса - any: приводим к Error без unsafe-присваиваний */
 function settledError(settled: PromiseSettledResult<unknown>): Error | null {
   if (settled.status !== 'rejected') return null
   const reason: unknown = settled.reason
@@ -177,7 +174,6 @@ function recentMessagesQueryOptions(creds: Credentials) {
   return queryOptions({
     queryKey: ['recent-messages', creds],
     queryFn: async (): Promise<JournalsResult> => {
-      // allSettled: падение одного журнала не мешает второму (частичный результат)
       const [incomingSettled, outgoingSettled] = await Promise.allSettled([
         fetchLastIncomingMessages(creds, RECENT_MINUTES),
         fetchLastOutgoingMessages(creds, RECENT_MINUTES),
@@ -189,7 +185,6 @@ function recentMessagesQueryOptions(creds: Credentials) {
         outgoingError: settledError(outgoingSettled),
       }
     },
-    // Краткоживущие данные: повторный монтаж хука в пределах минуты не бьёт по API
     staleTime: 60_000,
     retry: false,
   })
@@ -198,8 +193,8 @@ function recentMessagesQueryOptions(creds: Credentials) {
 type UseRecentChatsOptions = {
   creds: Credentials | null
   /**
-   * Результат getContacts (из useContactDiscovery). undefined — контакты ещё
-   * не загружены, запросы журналов не стартуют; [] — норма, журналы грузим.
+   * Результат getContacts (из useContactDiscovery). undefined - контакты ещё
+   * не загружены, запросы журналов не стартуют; [] - норма, журналы грузим.
    */
   contacts: ContactItem[] | undefined
   enabled?: boolean
@@ -219,14 +214,12 @@ export function useRecentChats({
 
   const journals = journalsQuery.data
 
-  // Мемоизация не нужна: пересборка — дешёвые Map/сорт поверх уже загруженных массивов
   const { recentChats, lastMessageByChat, unreadByChat } = buildRecentChats(
     journals?.incoming ?? null,
     journals?.outgoing ?? null,
     contacts ?? [],
   )
 
-  /** Ошибка только когда не удалось получить НИ ОДИН из журналов */
   const isError = journals != null && !journals.incoming && !journals.outgoing
   const error =
     journals?.incomingError && journals?.outgoingError
@@ -234,27 +227,13 @@ export function useRecentChats({
       : (journals?.incomingError ?? journals?.outgoingError ?? null)
 
   return {
-    /** Свежие чаты, отсортированные по времени последнего сообщения (убывание) */
     recentChats,
-    /** map: chatId (нормализованный) → последнее сообщение — для превью в списке */
     lastMessageByChat,
-    /**
-     * map: chatId (нормализованный) → число непрочитанных записей журналов
-     * (isRead === false). Число для бейджа списка чатов.
-     */
     unreadByChat,
-    /** Идёт загрузка журналов (контакты получены, но Last*-запросы ещё не завершены) */
     isLoading: journalsQuery.isPending,
-    /**
-     * true — журнальные запросы завершены (данные или ошибка). Створка для
-     * useChatHistories: GetChatHistory стартует только после Last*-запросов.
-     */
     isSettled: !journalsQuery.isPending,
-    /** true — оба журнальных запроса упали; частичный результат ошибкой не считается */
     isError,
-    /** Первая из ошибок (для отображения; при частичном результате тоже заполнена) */
     error,
-    /** Повторная загрузка журналов (кнопка/refetch на этапе 3) */
     refetch: journalsQuery.refetch,
   }
 }

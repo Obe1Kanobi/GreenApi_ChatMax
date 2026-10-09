@@ -8,11 +8,13 @@ import type { ChatMessage } from './types'
 type ChatWindowProps = {
   chat: ChatSummary | null
   messages: ChatMessage[]
-  /** true — идёт загрузка истории (GetChatHistory) */
+  /** true - идёт загрузка истории (GetChatHistory) */
   loadingHistory?: boolean
-  /** false — история чата ещё не загружена (нет HTTP 200): лента размыта */
+  /** false - история чата ещё не загружена (нет HTTP 200): лента размыта */
   historyLoaded?: boolean
   onSend: (text: string) => void
+  /** Кнопка «назад» в топбаре: на мобильном возвращает к списку чатов */
+  onBack?: () => void
 }
 
 /**
@@ -24,6 +26,7 @@ export default function ChatWindow({
   loadingHistory,
   historyLoaded = true,
   onSend,
+  onBack,
 }: ChatWindowProps) {
   if (!chat) {
     return (
@@ -44,8 +47,13 @@ export default function ChatWindow({
   }
 
   return (
-    <Stack sx={{ flex: 1, minWidth: 0, position: 'relative', bgcolor: '#7fc9f4', minHeight: 0 }}>
-      {/* Топбар */}
+    <Stack sx={{ 
+      flex: 1, 
+      minWidth: 0, 
+      position: 'relative', 
+      bgcolor: '#7fc9f4', 
+      minHeight: 0 
+    }}>
       <Stack
         direction="row"
         sx={{
@@ -58,11 +66,21 @@ export default function ChatWindow({
           borderBottom: '1px solid #e2e5e8',
         }}
       >
-        <IconButton aria-label="Назад" sx={{ p: 0.5, color: '#222' }}>
+        <IconButton aria-label="Назад" 
+          onClick={onBack} 
+          sx={{ 
+            p: 0.5, 
+            color: '#222' 
+          }}>
           <ChevronLeftIcon sx={{ fontSize: 28 }} />
         </IconButton>
 
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+        <Stack direction="row" 
+          sx={{ 
+            alignItems: 'center', 
+            gap: 1.25, 
+            minWidth: 0 
+            }}>
           <Avatar
             sx={{
               width: 38,
@@ -75,16 +93,29 @@ export default function ChatWindow({
             <Typography noWrap sx={{ fontSize: 15, fontWeight: 700 }}>
               {chat.name}
             </Typography>
-            <Typography sx={{ fontSize: 11, color: '#989ea3', mt: 0.25 }}>25 мин назад</Typography>
+            <Typography 
+              sx={{ 
+                fontSize: 11, 
+                color: '#989ea3', 
+                mt: 0.25 
+              }}>
+                Недавно
+              </Typography>
           </Box>
         </Stack>
       </Stack>
 
       {loadingHistory && (
-        <LinearProgress sx={{ position: 'absolute', top: 62, left: 0, right: 0, zIndex: 2 }} />
+        <LinearProgress 
+          sx={{ 
+            position: 'absolute', 
+            top: 62, 
+            left: 0, 
+            right: 0, 
+            zIndex: 2 
+          }} />
       )}
 
-      {/* Лента под блюром, пока история чата не загружена (200) */}
       <Box
         sx={{
           flex: 1,
@@ -100,7 +131,8 @@ export default function ChatWindow({
         <MessageList messages={messages} />
       </Box>
 
-      {/* Композер доступен только после загрузки истории чата */}
+      <Box className="chat-fade" />
+
       {historyLoaded ? <MessageInput onSend={onSend} /> : null}
     </Stack>
   )

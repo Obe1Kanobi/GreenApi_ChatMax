@@ -5,12 +5,12 @@ import type { ChatSummary } from '../features/chats/types'
 /**
  * Хранение учётных данных (README, раздел 7 «Сценарии UI»):
  * - «Запомнить меня» → localStorage;
- * - иначе → sessionStorage (закрыл вкладку — вышел).
+ * - иначе → sessionStorage (закрыл вкладку - вышел).
  */
 const STORAGE_KEY = 'greenapi:credentials'
 
 /**
- * Хранение чатов и сообщений — всегда в localStorage:
+ * Хранение чатов и сообщений - всегда в localStorage:
  * список чатов должен переживать перезагрузку страницы
  * (история сообщений дополнительно подтягивается из GetChatHistory).
  */
@@ -23,7 +23,7 @@ export type PersistedChatState = {
   selectedId: string | null
 }
 
-/** Загрузить состояние чатов; null — нет валидных данных в localStorage. */
+/** Загрузить состояние чатов; null - нет валидных данных в localStorage. */
 export function loadChatState(): PersistedChatState | null {
   const raw = localStorage.getItem(CHATS_KEY)
   if (!raw) return null

@@ -7,7 +7,7 @@ import type { Message } from '../api/types'
  * | typeWebhook                 | Действие                                          |
  * |-----------------------------|---------------------------------------------------|
  * | incomingMessageReceived     | text / extendedText → входящее; прочее → заглушка |
- * | outgoingAPIMessageReceived  | эхо наших отправок — не дублировать               |
+ * | outgoingAPIMessageReceived  | эхо наших отправок - не дублировать               |
  * | остальное                   | игнорировать (из очереди удаляет сам цикл)        |
  */
 
@@ -17,16 +17,13 @@ export const UNSUPPORTED_TEXT = '[неподдерживаемый тип]'
 /** Входящее текстовое сообщение → кандидат на добавление в чат */
 export type IncomingMessageEvent = {
   kind: 'incoming-message'
-  /** senderData.chatId — сопоставляем чат именно по нему */
   chatId: string
-  /** senderName / chatName для нового чата */
   chatName?: string
-  /** senderPhoneNumber, если пришёл */
   phone?: string
   message: Message
 }
 
-/** Эхо отправки через API — не добавляем сообщение */
+/** Эхо отправки через API - не добавляем сообщение */
 export type OutgoingEchoEvent = {
   kind: 'outgoing-echo'
   chatId: string
@@ -34,10 +31,26 @@ export type OutgoingEchoEvent = {
   timestamp: number
 }
 
-/** Результат разбора: событие для стора или null, если уведомление неинтересное */
-export type ParsedNotification = IncomingMessageEvent | OutgoingEchoEvent
+/**
+ * Статус исходящего сообщения (уведомление outgoingMessageStatus):
+ * отправлено или прочитано собеседником. read → 1 тёмно-синяя галочка,
+ * всё остальное - 2 серые (статус не «понижаем» ниже sent).
+ */
+export type OutgoingStatusEvent = {
+  kind: 'outgoing-status'
+  chatId: string
+  idMessage: string
+  status: 'sent' | 'read'
+  timestamp: number
+}
 
-/** Текст в зависимости от typeMessage; null — текста нет вовсе */
+/** Результат разбора: событие для стора или null, если уведомление неинтересное */
+export type ParsedNotification =
+  | IncomingMessageEvent
+  | OutgoingEchoEvent
+  | OutgoingStatusEvent
+
+/** Текст в зависимости от typeMessage; null - текста нет вовсе */
 function extractText(messageData: NotificationBody['messageData']): string | null {
   if (!messageData) return null
 
@@ -47,7 +60,6 @@ function extractText(messageData: NotificationBody['messageData']): string | nul
     case 'extendedTextMessage':
       return messageData.extendedTextMessageData?.text ?? null
     default:
-      // Фото/стикер и т.п.: не роняем цикл — показываем заглушку
       return UNSUPPORTED_TEXT
   }
 }
@@ -85,6 +97,20 @@ export function parseNotification(body: NotificationBody): ParsedNotification | 
       kind: 'outgoing-echo',
       chatId,
       idMessage: body.idMessage,
+      timestamp: body.timestamp,
+    }
+  }
+
+  if (typeWebhook === 'outgoingMessageStatus') {
+    const chatId = body.senderData?.chatId
+    if (!chatId || !body.idMessage) return null
+
+    const raw = body.statusMessage ?? body.status
+    return {
+      kind: 'outgoing-status',
+      chatId,
+      idMessage: body.idMessage,
+      status: raw === 'read' ? 'read' : 'sent',
       timestamp: body.timestamp,
     }
   }

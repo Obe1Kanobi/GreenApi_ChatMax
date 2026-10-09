@@ -5,3 +5,76 @@ body {
   box-sizing: border-box;
   font-family: 'Inter', sans-serif;
 }
+
+/* ===== Лента сообщений ===== */
+.chat-messages {
+  scrollbar-color: rgba(255, 255, 255, 0.85) transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background-color: #ffffff;
+}
+
+/* Колонка сообщений - той же ширины, что и поле ввода
+   (MessageInput: width min(72%, 720px) с теми же брейкпоинтами) */
+.chat-messages-inner {
+  width: min(72%, 720px);
+  margin: 0 auto;
+}
+
+@media (max-width: 1000px) {
+  .chat-messages-inner {
+    width: 78%;
+  }
+}
+
+@media (max-width: 760px) {
+  .chat-messages-inner {
+    width: 92%;
+  }
+}
+
+/* Прозрачная зона затухания над нижним краем ленты: сообщения плавно
+   исчезают, прокручиваясь под полем ввода. pointer-events: none -
+   клики проходят сквозь неё */
+.chat-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    #7bc8f3 0%,
+    #7bc8f3 18%,
+    rgba(123, 200, 243, 0) 100%
+  );
+}
+
+/* ===== Мобильная раскладка (≤760px) ===== */
+@media (max-width: 760px) {
+  .mobile-list-view .pane-chat {
+    display: none;
+  }
+
+  .mobile-chat-view .pane-sidebar {
+    display: none;
+  }
+}

@@ -29,12 +29,12 @@ import type {
 /**
  * Слой TanStack Query над fetch-функциями greenApi.ts.
  * ВСЕ сетевые запросы приложения идут через эти хуки:
- *  - мутации (useMutation) — действия: логин, отправка, прочтение и т.д.;
- *  - запросы (useQuery) — данные: контакты, история чатов.
+ *  - мутации (useMutation) - действия: логин, отправка, прочтение и т.д.;
+ *  - запросы (useQuery) - данные: контакты, история чатов.
  * Fetch-функции greenApi.ts используются строго как queryFn/mutationFn.
  */
 
-/** Ключи запросов — единая точка, чтобы не рассинхронить invalidate/remove.
+/** Ключи запросов - единая точка, чтобы не рассинхронить invalidate/remove.
  * creds входит в ключ целиком: объект стабилен за сессию (useState в App),
  * кэш истории вычищается на логауте (useChatHistories). */
 export const queryKeys = {
@@ -79,7 +79,7 @@ export function useGetMessageMutation() {
   })
 }
 
-/** Одно уведомление из FIFO-очереди (long-poll); пустой ответ — норма (null) */
+/** Одно уведомление из FIFO-очереди (long-poll); пустой ответ - норма (null) */
 export function useReceiveNotificationMutation() {
   return useMutation<Notification | null, Error, { creds: Credentials; receiveTimeout: number; signal?: AbortSignal }>({
     mutationFn: ({ creds, receiveTimeout, signal }) =>
@@ -87,7 +87,7 @@ export function useReceiveNotificationMutation() {
   })
 }
 
-/** Подтверждение обработки уведомления — иначе FIFO-очередь встанет */
+/** Подтверждение обработки уведомления - иначе FIFO-очередь встанет */
 export function useDeleteNotificationMutation() {
   return useMutation<DeleteNotificationResponse, Error, { creds: Credentials; receiptId: number }>({
     mutationFn: ({ creds, receiptId }) => deleteNotification(creds, receiptId),
@@ -98,7 +98,7 @@ export function useDeleteNotificationMutation() {
 
 /**
  * Журнальные методы GetChatHistory, LastIncomingMessages, LastOutgoingMessages
- * имеют лимит «1 запрос в секунду» на инстанс — все вызовы идут через общий
+ * имеют лимит «1 запрос в секунду» на инстанс - все вызовы идут через общий
  * rate-limiter (api/rateLimiter.ts), единый для всех трёх методов.
  */
 
@@ -114,7 +114,7 @@ export function fetchChatHistory(
 /**
  * Журнал крайних входящих сообщений (LastIncomingMessages) с троттлингом 1 rps.
  * Вызывается сразу после getContacts и сопоставляется с контактами (Этап 2):
- * у кого есть входящие — те чаты показываются первыми в списке.
+ * у кого есть входящие - те чаты показываются первыми в списке.
  */
 export function fetchLastIncomingMessages(
   creds: Credentials,
@@ -139,7 +139,6 @@ export function chatHistoryQueryOptions(creds: Credentials, chatId: string) {
   return {
     queryKey: queryKeys.chatHistory(creds, chatId),
     queryFn: () => fetchChatHistory(creds, chatId, 100),
-    /** История загружается ровно один раз за сессию — кэш не протухает */
     staleTime: Infinity,
     gcTime: 10 * 60_000,
     retry: false,
