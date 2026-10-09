@@ -32,7 +32,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         boxShadow: '0 1px 0 rgba(0,0,0,.06)',
         bgcolor: out ? '#dcf6ff' : '#fff',
         // Входящие — с отступом слева, исходящие — прижаты к правому краю
-        ml: out ? 'auto' : '27%',
+        ml: out ? 'auto' : '13%',
         '@media (max-width: 1000px)': {
           ml: out ? 'auto' : '18%',
           maxWidth: size === 'auto' ? '70%' : SIZE_MAX_WIDTH[size],

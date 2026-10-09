@@ -1,8 +1,13 @@
 import type {
   CheckAccountResponse,
   ChatHistoryItem,
+  ContactItem,
   Credentials,
+  DeleteNotificationResponse,
   GetStateInstanceResponse,
+  LastMessageRecord,
+  Notification,
+  ReadChatResponse,
   SendMessageResponse,
 } from './types'
 
@@ -117,6 +122,60 @@ export async function sendMessage(
 }
 
 /**
+ * POST readChat — отметить сообщения чата прочитанными в инстансе.
+ * Без idMessage отмечаются ВСЕ сообщения чата.
+ * Требуется настройка инстанса «Получать уведомления о входящих
+ * сообщениях и файлах» (docs: green-api.com/v3/docs/api/marks/ReadChat).
+ */
+export function readChat(
+  creds: Credentials,
+  chatId: string,
+  idMessage?: string,
+): Promise<ReadChatResponse> {
+  return request<ReadChatResponse>(endpoint(creds, 'readChat'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(idMessage ? { chatId, idMessage } : { chatId }),
+  })
+}
+
+/**
+ * Одно уведомление из FIFO-очереди (long-poll).
+ * receiveTimeout 5–60 с; пустой ответ — норма, а не ошибка (вернём null).
+ * Обязателен к разбору: без receiveNotification/deleteNotification
+ * журналы чатов в инстансе обновляются с задержкой.
+ */
+export async function receiveNotification(
+  creds: Credentials,
+  receiveTimeout = 20,
+  signal?: AbortSignal,
+): Promise<Notification | null> {
+  const url = `${endpoint(creds, 'receiveNotification')}?receiveTimeout=${receiveTimeout}`
+  const data = await request<Notification | null>(url, { method: 'GET', signal })
+  return data ?? null
+}
+
+/** Подтверждение обработки уведомления — вызывать для каждого, иначе FIFO встанет. */
+export function deleteNotification(
+  creds: Credentials,
+  receiptId: number,
+): Promise<DeleteNotificationResponse> {
+  return request<DeleteNotificationResponse>(
+    `${endpoint(creds, 'deleteNotification')}/${receiptId}`,
+    { method: 'DELETE' },
+  )
+}
+
+/**
+ * GET getContacts — список контактов (собеседников) аккаунта.
+ * Это источник discovery новых чатов: включает и тех, от кого была
+ * входящая переписка. Пустой массив — норма, повторить позже (docs).
+ */
+export function getContacts(creds: Credentials): Promise<ContactItem[]> {
+  return request<ContactItem[]>(endpoint(creds, 'getContacts'), { method: 'GET' })
+}
+
+/**
  * POST getMessage — одно сообщение чата по его id
  * (docs: green-api.com/v3/docs/api/journals/GetMessage).
  * Тело ответа совпадает с элементом истории (ChatHistoryItem).
@@ -140,10 +199,49 @@ export function getChatHistory(
   creds: Credentials,
   chatId: string,
   count = 100,
+  signal?: AbortSignal,
 ): Promise<ChatHistoryItem[]> {
   return request<ChatHistoryItem[]>(endpoint(creds, 'getChatHistory'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chatId, count }),
+    signal,
   })
+}
+
+/**
+ * GET lastIncomingMessages — журнал крайних входящих сообщений инстанса
+ * (по умолчанию за последние 24 часа; docs: green-api.com/v3/docs/api/journals/LastIncomingMessages).
+ * Используется сразу после getContacts для сопоставления с контактами:
+ * у которых есть входящие — чаты показываются первыми (Этап 2).
+ * Лимит 1 запрос в секунду — вызывать только через rateLimiter (api/queries.ts).
+ */
+export function lastIncomingMessages(
+  creds: Credentials,
+  minutes?: number,
+  signal?: AbortSignal,
+): Promise<LastMessageRecord[]> {
+  const query = minutes ? `?minutes=${minutes}` : ''
+  return request<LastMessageRecord[]>(
+    `${endpoint(creds, 'lastIncomingMessages')}${query}`,
+    { method: 'GET', signal },
+  )
+}
+
+/**
+ * GET lastOutgoingMessages — журнал крайних исходящих сообщений инстанса
+ * (по умолчанию за последние 24 часа; docs: green-api.com/v3/docs/api/journals/LastOutgoingMessages).
+ * Аналогично lastIncomingMessages: лимит 1 запрос в секунду —
+ * вызывать только через rateLimiter (api/queries.ts).
+ */
+export function lastOutgoingMessages(
+  creds: Credentials,
+  minutes?: number,
+  signal?: AbortSignal,
+): Promise<LastMessageRecord[]> {
+  const query = minutes ? `?minutes=${minutes}` : ''
+  return request<LastMessageRecord[]>(
+    `${endpoint(creds, 'lastOutgoingMessages')}${query}`,
+    { method: 'GET', signal },
+  )
 }

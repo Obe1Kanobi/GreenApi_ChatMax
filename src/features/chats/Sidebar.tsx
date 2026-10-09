@@ -1,20 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { Box, IconButton, InputBase, Stack, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import CallIcon from '@mui/icons-material/Call'
-import CampaignIcon from '@mui/icons-material/Campaign'
 import ForumIcon from '@mui/icons-material/Forum'
-import GroupIcon from '@mui/icons-material/Group'
 import LogoutIcon from '@mui/icons-material/Logout'
-import MarkUnreadChatAltIcon from '@mui/icons-material/MarkUnreadChatAlt'
 import SearchIcon from '@mui/icons-material/Search'
-import SettingsIcon from '@mui/icons-material/Settings'
 import ChatListItem from './ChatListItem'
 import type { ChatSummary } from './types'
 
 type SidebarProps = {
   chats: ChatSummary[]
+  /** Свежие чаты из журналов за 24 ч (этап 3) — выводятся вверху списка */
+  recentChats?: ChatSummary[]
   selectedId: string | null
+  /** Чаты с успешно загруженной историей (HTTP 200) — без блюра */
+  loadedIds?: ReadonlySet<string>
   onSelect: (id: string) => void
   onNewChat: () => void
   onLogout: () => void
@@ -127,12 +126,31 @@ function BrandMark() {
  */
 export default function Sidebar({
   chats,
+  recentChats = [],
   selectedId,
+  loadedIds,
   onSelect,
   onNewChat,
   onLogout,
 }: SidebarProps) {
   const [activeRail, setActiveRail] = useState('all')
+
+  // Свежие чаты сверху: сортировка по времени последнего сообщения
+  const sortedChats = [...chats].sort((a, b) => (b.lastTs ?? 0) - (a.lastTs ?? 0))
+
+  /**
+   * Дедупликация: контакты, попавшие в свежие чаты (совпадение chatId),
+   * уже показаны вверху — из основного списка исключаем. Чаты без chatId
+   * (демо/локальные) всегда остаются в общем списке. Если свежих чатов
+   * нет — список идёт как раньше, без заглушек.
+   */
+  const recentChatIds = new Set<string>()
+  for (const chat of recentChats) {
+    if (chat.chatId) recentChatIds.add(chat.chatId.trim().toLowerCase())
+  }
+  const otherChats = sortedChats.filter(
+    (chat) => !chat.chatId || !recentChatIds.has(chat.chatId.trim().toLowerCase()),
+  )
 
   return (
     <Stack direction="row" sx={{ height: '100%', flex: 'none' }}>
@@ -157,7 +175,13 @@ export default function Sidebar({
             onClick={() => setActiveRail(item.id)}
           />
         ))}
-        <Box sx={{ height: 1, width: 54, my: 0.5, bgcolor: '#e2e5e8' }} />
+        <Box 
+          sx={{ 
+            height: 1, 
+            width: 54, 
+            my: 0.5 
+          }} 
+        />
         <Box sx={{ flex: 1 }} />
         <Tooltip title="Выйти">
           <IconButton onClick={onLogout} sx={{ my: 1, color: '#8a9095' }}>
@@ -234,11 +258,12 @@ export default function Sidebar({
             '&::-webkit-scrollbar': { display: 'none' },
           }}
         >
-          {chats.map((chat) => (
+          {[...recentChats, ...otherChats].map((chat) => (
             <ChatListItem
               key={chat.id}
               chat={chat}
               selected={chat.id === selectedId}
+              blurred={Boolean(chat.chatId) && !(loadedIds?.has(chat.id) ?? false)}
               onClick={() => onSelect(chat.id)}
             />
           ))}

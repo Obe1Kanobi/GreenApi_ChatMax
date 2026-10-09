@@ -48,7 +48,12 @@ export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProp
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <form onSubmit={handleSubmit}>
+      {/* handleSubmit async: промис не передаём напрямую в onSubmit */}
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(e)
+        }}
+      >
         <DialogTitle>Новый чат</DialogTitle>
         <DialogContent>
           <TextField

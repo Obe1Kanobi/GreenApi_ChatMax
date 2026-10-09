@@ -1,8 +1,5 @@
 import { Avatar, Box, IconButton, LinearProgress, Stack, Typography } from '@mui/material'
-import CallIcon from '@mui/icons-material/Call'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import SearchIcon from '@mui/icons-material/Search'
-import VideocamIcon from '@mui/icons-material/Videocam'
 import type { ChatSummary } from '../chats/types'
 import MessageInput from './MessageInput'
 import MessageList from './MessageList'
@@ -13,13 +10,21 @@ type ChatWindowProps = {
   messages: ChatMessage[]
   /** true — идёт загрузка истории (GetChatHistory) */
   loadingHistory?: boolean
+  /** false — история чата ещё не загружена (нет HTTP 200): лента размыта */
+  historyLoaded?: boolean
   onSend: (text: string) => void
 }
 
 /**
  * Окно одного чата (mockup: .main): топбар + лента сообщений + композер.
  */
-export default function ChatWindow({ chat, messages, loadingHistory, onSend }: ChatWindowProps) {
+export default function ChatWindow({
+  chat,
+  messages,
+  loadingHistory,
+  historyLoaded = true,
+  onSend,
+}: ChatWindowProps) {
   if (!chat) {
     return (
       <Stack
@@ -79,8 +84,24 @@ export default function ChatWindow({ chat, messages, loadingHistory, onSend }: C
         <LinearProgress sx={{ position: 'absolute', top: 62, left: 0, right: 0, zIndex: 2 }} />
       )}
 
-      <MessageList messages={messages} />
-      <MessageInput onSend={onSend} />
+      {/* Лента под блюром, пока история чата не загружена (200) */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          filter: historyLoaded ? 'none' : 'blur(6px)',
+          opacity: historyLoaded ? 1 : 0.6,
+          transition: 'filter 0.35s ease, opacity 0.35s ease',
+          pointerEvents: historyLoaded ? 'auto' : 'none',
+        }}
+      >
+        <MessageList messages={messages} />
+      </Box>
+
+      {/* Композер доступен только после загрузки истории чата */}
+      {historyLoaded ? <MessageInput onSend={onSend} /> : null}
     </Stack>
   )
 }

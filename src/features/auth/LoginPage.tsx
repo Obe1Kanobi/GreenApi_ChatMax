@@ -7,7 +7,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
-import { getStateInstance } from '../../api/greenApi'
+import { useLoginMutation } from '../../api/queries'
 import type { Credentials } from '../../api/types'
 import { saveCredentials } from '../../utils/storage'
 
@@ -23,8 +23,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [idInstance, setIdInstance] = useState('')
   const [apiTokenInstance, setApiTokenInstance] = useState('')
   const [remember, setRemember] = useState(true)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Логин через TanStack Query (useMutation → getStateInstance)
+  const loginMutation = useLoginMutation()
+  const loading = loginMutation.isPending
 
   const canSubmit =
     idInstance.trim() !== '' && apiTokenInstance.trim() !== '' && !loading
@@ -33,15 +36,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault()
     if (!canSubmit) return
 
-    setLoading(true)
     setError(null)
+    const creds: Credentials = {
+      apiUrl: DEFAULT_API_URL,
+      idInstance: idInstance.trim(),
+      apiTokenInstance: apiTokenInstance.trim(),
+    }
     try {
-      const creds: Credentials = {
-        apiUrl: DEFAULT_API_URL,
-        idInstance: idInstance.trim(),
-        apiTokenInstance: apiTokenInstance.trim(),
-      }
-      const state = await getStateInstance(creds)
+      const state = await loginMutation.mutateAsync(creds)
       if (state.stateInstance !== 'authorized') {
         throw new Error('Инстанс не авторизован: отсканируйте QR-код в кабинете GREEN-API')
       }
@@ -49,8 +51,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       onLogin(creds)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось войти')
-    } finally {
-      setLoading(false)
     }
   }
 
