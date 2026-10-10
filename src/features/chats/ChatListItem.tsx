@@ -4,7 +4,6 @@ import type { ChatSummary } from './types'
 type ChatListItemProps = {
   chat: ChatSummary
   selected: boolean
-  /** true - история чата ещё не загружена (нет HTTP 200): содержимое размыто */
   blurred?: boolean
   onClick: () => void
 }
@@ -32,8 +31,7 @@ export default function ChatListItem({
         bgcolor: selected ? '#e7f3ff' : 'transparent',
         transition: 'background-color 0.15s',
         '&:hover': { bgcolor: selected ? '#e7f3ff' : '#f4f5f6' },
-      }}
-    >
+      }}>
       <Stack
         direction="row"
         sx={{
@@ -44,8 +42,7 @@ export default function ChatListItem({
           filter: blurred ? 'blur(5px)' : 'none',
           opacity: blurred ? 0.55 : 1,
           transition: 'filter 0.35s ease, opacity 0.35s ease',
-        }}
-      >
+        }}>
         <Avatar
           sx={{
             width: 50,
@@ -56,9 +53,8 @@ export default function ChatListItem({
             fontWeight: 700,
             fontSize: chat.avatar.fontSize ?? 20,
             border: chat.avatar.border,
-          }}
-        >
-          {chat.avatar.text}
+          }}>
+            {chat.avatar.text}
         </Avatar>
 
         <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -70,14 +66,13 @@ export default function ChatListItem({
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-            }}
-          >
-            {chat.name}
-            {chat.marker && (
-              <Box component="span" sx={{ color: chat.marker.color }}>
-                {chat.marker.symbol}
-              </Box>
-            )}
+            }}>
+              {chat.name}
+              {chat.marker && (
+                <Box component="span" sx={{ color: chat.marker.color }}>
+                  {chat.marker.symbol}
+                </Box>
+              )}
           </Box>
           <Box
             sx={{
@@ -86,9 +81,8 @@ export default function ChatListItem({
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-            }}
-          >
-            {chat.preview}
+            }}>
+              {chat.preview}
           </Box>
         </Box>
 
@@ -99,13 +93,7 @@ export default function ChatListItem({
             fontSize: 12,
             color: '#999da0',
             whiteSpace: 'nowrap',
-          }}
-        >
-          {chat.read && (
-            <Box component="span" sx={{ color: '#0d8cff', fontSize: 14, mr: 0.375 }}>
-              ✓✓
-            </Box>
-          )}
+          }}>
           {chat.time}
           {chat.unread ? (
             <Box
@@ -120,8 +108,7 @@ export default function ChatListItem({
                 bgcolor: '#0d83fb',
                 color: '#fff',
                 fontSize: 12,
-              }}
-            >
+              }}>
               {chat.unread}
             </Box>
           ) : null}

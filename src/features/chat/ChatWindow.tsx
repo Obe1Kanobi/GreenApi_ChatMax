@@ -8,12 +8,9 @@ import type { ChatMessage } from './types'
 type ChatWindowProps = {
   chat: ChatSummary | null
   messages: ChatMessage[]
-  /** true - идёт загрузка истории (GetChatHistory) */
   loadingHistory?: boolean
-  /** false - история чата ещё не загружена (нет HTTP 200): лента размыта */
   historyLoaded?: boolean
   onSend: (text: string) => void
-  /** Кнопка «назад» в топбаре: на мобильном возвращает к списку чатов */
   onBack?: () => void
 }
 

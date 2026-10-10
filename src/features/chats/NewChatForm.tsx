@@ -1,24 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material'
 import { NotRegisteredError } from '../../api/greenApi'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 
 type NewChatFormProps = {
   open: boolean
   onClose: () => void
-  /** Вызывается с нормализованным номером (79991234567);
-   * асинхронный - CheckAccount GREEN-API; бросает ошибку при неудаче,
-   * NotRegisteredError - когда аккаунта с таким номером нет (exist: false) */
   onCreate: (phone: string) => Promise<void>
 }
 
-/** Нормализация: убрать лишнее, ведущую 8 заменить на 7 (README, раздел 7) */
-function normalizePhone(raw: string): string {
-  let digits = raw.replace(/\D/g, '')
-  if (digits.startsWith('8') && digits.length === 11) {
-    digits = `7${digits.slice(1)}`
-  }
-  return digits
-}
 
 /**
  * Диалог создания нового чата.
@@ -35,11 +25,11 @@ export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProp
   const [notRegistered, setNotRegistered] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    const normalized = normalizePhone(phone)
-    if (!/^7\d{10}$|^375\d{9}$/.test(normalized)) {
+    e.preventDefault();
+    const normalized = normalizePhone(phone);
+    if (!isValidPhone(normalized)) {
       setError('Введите номер в формате +7 (999) 123-45-67');
-      return;
+      return
     }
     setLoading(true);
     setError(null);
@@ -57,63 +47,84 @@ export default function NewChatForm({ open, onClose, onCreate }: NewChatFormProp
     }
   }
 
-  /** Закрытие диалога: сбрасываем состояние, включая экран «не зарегистрирован» */
   function handleClose() {
     setNotRegistered(false);
     setError(null);
     onClose();
   }
 
+  function handlePhoneChange(value: string) {
+    setPhone(value);
+    setError(null);
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
       {notRegistered ? (
-        <>
-          <DialogTitle>Пользователь не зарегистрирован</DialogTitle>
-          <DialogContent>
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              Пользователь с этим номером не зарегистрирован в MAX.
-              Чтобы начать переписку, ему нужно зарегистрироваться.
-            </Alert>
-          </DialogContent>
-          <DialogActions>
-            <Button variant="contained" onClick={handleClose}>
-              ОК
-            </Button>
-          </DialogActions>
-        </>
+        <NotRegisteredView onOk={handleClose} />
       ) : (
-        <form
-          onSubmit={(e) => {
-            void handleSubmit(e)
-          }}
-        >
-          <DialogTitle>Новый чат</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              fullWidth
-              margin="dense"
-              label="Номер телефона"
-              placeholder="+7 (999) 123-45-67"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value)
-                setError(null)
-              }}
-              error={Boolean(error)}
-              helperText={error}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleClose} disabled={loading}>
-              Отмена
-            </Button>
-            <Button type="submit" variant="contained" loading={loading}>
-              Создать
-            </Button>
-          </DialogActions>
-        </form>
+        <PhoneForm
+          phone={phone}
+          error={error}
+          loading={loading}
+          onPhoneChange={handlePhoneChange}
+          onSubmit={(e) => void handleSubmit(e)}
+          onCancel={handleClose}
+        />
       )}
     </Dialog>
+  )
+}
+
+/* ---------- Компоненты отображения: на верхнем уровне, не внутри NewChatForm ---------- */
+
+function NotRegisteredView({ onOk }: { onOk: () => void }) {
+  return (
+    <>
+      <DialogTitle>Пользователь не зарегистрирован</DialogTitle>
+      <DialogContent>
+        <Alert severity="warning" sx={{ mt: 1 }}>
+          Пользователь с этим номером не зарегистрирован в MAX.
+          Чтобы начать переписку, ему нужно зарегистрироваться.
+        </Alert>
+      </DialogContent>
+      <DialogActions>
+        <Button variant="contained" onClick={onOk}>ОК</Button>
+      </DialogActions>
+    </>
+  )
+}
+
+type PhoneFormProps = {
+  phone: string
+  error: string | null
+  loading: boolean
+  onPhoneChange: (value: string) => void
+  onSubmit: (e: FormEvent) => void
+  onCancel: () => void
+}
+
+function PhoneForm({ phone, error, loading, onPhoneChange, onSubmit, onCancel }: PhoneFormProps) {
+  return (
+    <form onSubmit={onSubmit}>
+      <DialogTitle>Новый чат</DialogTitle>
+      <DialogContent>
+        <TextField
+          autoFocus
+          fullWidth
+          margin="dense"
+          label="Номер телефона"
+          placeholder="+7 (999) 123-45-67"
+          value={phone}
+          onChange={(e) => onPhoneChange(e.target.value)}
+          error={Boolean(error)}
+          helperText={error}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel} disabled={loading}>Отмена</Button>
+        <Button type="submit" variant="contained" loading={loading}>Создать</Button>
+      </DialogActions>
+    </form>
   )
 }

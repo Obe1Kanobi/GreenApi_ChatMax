@@ -6,21 +6,14 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import SearchIcon from '@mui/icons-material/Search'
 import ChatListItem from './ChatListItem'
 import type { ChatSummary } from './types'
+import { isChatBlurred, orderChats } from '../../utils/chat'
 
 type SidebarProps = {
   chats: ChatSummary[]
-  /** Свежие чаты из журналов за 24 ч (этап 3) - выводятся вверху списка */
   recentChats?: ChatSummary[]
   selectedId: string | null
-  /** Чаты с успешно загруженной историей (HTTP 200) - без блюра */
   loadedIds?: ReadonlySet<string>
-  /**
-   * Нормализованные chatId из объединения LastOutgoing/LastIncomingMessages,
-   * совпавшие с контактами: такие чаты снимаются с блюра сразу, с превью
-   * последнего сообщения, не дожидаясь загрузки истории.
-   */
   matchedChatIds?: ReadonlySet<string>
-  /** true - идёт сопоставление журналов / ожидание первых 5 GetChatHistory: спиннер */
   isLoading?: boolean
   onSelect: (id: string) => void
   onNewChat: () => void
@@ -143,17 +136,15 @@ export default function Sidebar({
   onNewChat,
   onLogout,
 }: SidebarProps) {
-  const [activeRail, setActiveRail] = useState('all')
-
-  const sortedChats = [...chats].sort((a, b) => (b.lastTs ?? 0) - (a.lastTs ?? 0))
+  const [activeRail, setActiveRail] = useState('all');
 
   const recentChatIds = new Set<string>()
-  for (const chat of recentChats) {
-    if (chat.chatId) recentChatIds.add(chat.chatId.trim().toLowerCase())
+    for (const chat of recentChats) {
+      if (chat.chatId) 
+        return recentChatIds.add(chat.chatId.trim().toLowerCase())
   }
-  const otherChats = sortedChats.filter(
-    (chat) => !chat.chatId || !recentChatIds.has(chat.chatId.trim().toLowerCase()),
-  )
+
+  const orderedChats = orderChats(chats, recentChats);
 
   return (
     <Stack direction="row" sx={{ height: '100%', flex: 'none' }}>
@@ -256,30 +247,21 @@ export default function Sidebar({
             overflowY: 'auto',
             scrollbarWidth: 'none',
             '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
+          }}>
           {isLoading && (
             <Stack sx={{ py: 2.5, alignItems: 'center' }}>
               <CircularProgress size={24} sx={{ color: '#0c7ff4' }} />
             </Stack>
           )}
-          {[...recentChats, ...otherChats].map((chat) => {
-            const normalized = chat.chatId?.trim().toLowerCase() ?? ''
-            const matched = normalized !== '' && (matchedChatIds?.has(normalized) ?? false)
-            return (
-              <ChatListItem
-                key={chat.id}
-                chat={chat}
-                selected={chat.id === selectedId}
-                blurred={
-                  Boolean(chat.chatId) &&
-                  !(loadedIds?.has(chat.id) ?? false) &&
-                  !matched
-                }
-                onClick={() => onSelect(chat.id)}
-              />
-            )
-          })}
+          {orderedChats.map(chat => (
+            <ChatListItem
+              key={chat.id}
+              chat={chat}
+              selected={chat.id === selectedId}
+              blurred={isChatBlurred(chat, loadedIds, matchedChatIds)}
+              onClick={() => onSelect(chat.id)}
+            />
+          ))}
         </Box>
       </Box>
     </Stack>

@@ -15,7 +15,6 @@ import { saveCredentials } from '../../utils/storage'
 const DEFAULT_API_URL = 'https://api.green-api.com'
 
 type LoginPageProps = {
-  /** Вызывается после успешного входа */
   onLogin: (creds: Credentials) => void
 }
 

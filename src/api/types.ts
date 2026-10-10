@@ -12,23 +12,18 @@ export type Credentials = {
 
 /** Сообщение в чате */
 export type Message = {
-  /** idMessage из API (или временный локальный id) */
   id: string;
   chatId: string;
   text: string;
   direction: 'in' | 'out';
-  /** секунды, как в API */
   timestamp: number;
   status?: 'sending' | 'sent' | 'failed';
 };
 
 /** Чат */
 export type Chat = {
-  /** из CheckAccount */
   chatId: string;
-  /** номер телефона, например 79991234567 */
   phone: string;
-  /** senderName из входящих, когда появится */
   name?: string;
   messages: Message[];
   unread: number;
@@ -90,12 +85,7 @@ export type NotificationBody = {
   idMessage: string;
   senderData?: SenderData;
   messageData?: MessageData;
-  /**
-   * Статус исходящего сообщения из уведомления outgoingMessageStatus:
-   * sent / delivered / read
-   */
   statusMessage?: string;
-  /** Альтернативное поле статуса (в зависимости от версии API) */
   status?: string;
 };
 
@@ -113,15 +103,10 @@ export type DeleteNotificationResponse = {
 
 /** GET getContacts - контакт аккаунта (элемент списка собеседников) */
 export type ContactItem = {
-  /** Идентификатор корреспондента или группового чата */
   chatId: string;
-  /** Имя из профиля (есть только если была входящая переписка/реакции) */
   name?: string;
-  /** Имя контакта */
   contactName?: string;
-  /** user / bot */
   type?: string;
-  /** Номер телефона; 0 - скрыт/группа/не сохранён */
   phoneNumber?: number;
 };
 
@@ -131,15 +116,12 @@ export type ContactItem = {
  * до 5000 сообщений за 3 месяца (README, раздел 5).
  */
 export type ChatHistoryItem = {
-  /** outgoing - исходящее, incoming - входящее */
   type: "outgoing" | "incoming";
   idMessage: string;
-  /** UNIX-время, секунды */
   timestamp: number;
   typeMessage: string;
   chatId: string;
   chatType?: string;
-  /** Статус исходящего: sent / delivered / read */
   statusMessage?: string;
   sendByApi?: boolean;
   senderId?: string;
@@ -151,7 +133,6 @@ export type ChatHistoryItem = {
   extendedTextMessage?: { text?: string; title?: string; description?: string };
   isDeleted?: boolean;
   isEdited?: boolean;
-  /** Прочитано (у входящих; у исходящих - statusMessage) */
   isRead?: boolean;
   isReadTimestamp?: number;
 };
@@ -166,20 +147,12 @@ export type ChatHistoryItem = {
  *       green-api.com/v3/docs/api/journals/LastOutgoingMessages.
  */
 export type LastMessageRecord = ChatHistoryItem & {
-  /** user / group / channel / bot (для входящих) */
   senderType?: string;
-  /** Ссылка на файл, если typeMessage - медиа (image/video/document/sticker) */
   downloadUrl?: string;
-  /** JPEG-превью файла, если включена настройка инстанса downloadUrlJpeg */
   downloadUrlJpeg?: string;
-  /** Превью изображения в base64 */
   jpegThumbnail?: string;
-  /** Тип файла (Media Types), если typeMessage - медиа */
   mimeType?: string;
-  /** Анимирован ли файл (sticker/image/video/document) */
   isAnimated?: boolean;
-  /** Сообщение переслано */
   isForwarded?: boolean;
-  /** Количество пересылок */
   forwardingScore?: number;
 };

@@ -43,7 +43,13 @@ export default function MessageInput({ onSend }: MessageInputProps) {
         '@media (max-width: 760px)': { width: '92%', bottom: 10 },
       }}
     >
-      <IconButton size="small" aria-label="Прикрепить" sx={{ color: '#93999e', mr: 0.875 }}>
+      <IconButton 
+        size="small" 
+        aria-label="Прикрепить" 
+        sx={{ 
+          color: '#93999e', 
+          mr: 0.875 
+        }}>
         <AttachFileIcon sx={{ fontSize: 20 }} />
       </IconButton>
 
